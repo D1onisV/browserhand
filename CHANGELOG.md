@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- No more "debugging this browser" bar during normal work. Trusted mouse and keyboard input is now the **Real click and keyboard** setting, off by default; clicks, typing and keys use page events otherwise.
+- **Switch to Claude’s tabs** setting. When off, Claude opens its tabs in a separate background window and never brings your tabs to the front.
+- `eval` on sites with a strict Content Security Policy uses user scripts when the browser allows them, instead of the debugger.
+- Usage limits are read from claude.ai when the panel opens, with a refresh button.
+- Bulleted and numbered lists in replies render as real lists.
+- Screenshot of the chat window in the README.
+
 ## 0.1.0
 
 First public release.

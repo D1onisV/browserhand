@@ -1,6 +1,38 @@
 // Browser control: tabs, page reading, clicks, typing, screenshots, console and network logs.
 
 (() => {
+  // ---------- settings (menu ⋯) ----------
+  // realInput:  trusted mouse/keyboard, CSP-proof eval and full-page shots through the
+  //             DevTools protocol. The browser shows a "debugging this browser" bar meanwhile.
+  // followTabs: switch the user's view to the tab Claude works on. When off, Claude's own tabs
+  //             live in a separate unfocused window and the user's tabs are never activated.
+  const settings = { realInput: false, followTabs: true };
+  chrome.storage.local.get(settings).then((s) => Object.assign(settings, s));
+  chrome.storage.onChanged.addListener((ch, area) => {
+    if (area !== 'local') return;
+    for (const k of Object.keys(settings)) if (ch[k]) settings[k] = ch[k].newValue;
+  });
+
+  const NEED_REAL = 'needs "Real click and keyboard" (menu ⋯), which shows the browser’s debugging bar';
+
+  // One unfocused window for tabs Claude opens while following is off.
+  async function agentWindow() {
+    const { agentWindowId } = await chrome.storage.session.get({ agentWindowId: null });
+    if (agentWindowId) { try { return await chrome.windows.get(agentWindowId); } catch { /* closed */ } }
+    return null;
+  }
+  async function openInAgentWindow(url) {
+    const w = await agentWindow();
+    if (w) return chrome.tabs.create({ windowId: w.id, url, active: true });
+    const created = await chrome.windows.create({ url, focused: false, width: 1280, height: 860 });
+    await chrome.storage.session.set({ agentWindowId: created.id });
+    return created.tabs[0];
+  }
+  async function inAgentWindow(tab) {
+    const w = await agentWindow();
+    return !!w && tab.windowId === w.id;
+  }
+
   // ---------- helpers ----------
   async function tabOf(a) {
     let id;
@@ -50,12 +82,13 @@
   // ---------- DevTools protocol (trusted input, CSP-proof eval, background screenshots) ----------
   const dbg = {};
   async function cdp(tabId, method, params = {}) {
+    if (!settings.realInput) throw new Error(`this action ${NEED_REAL}`);
     if (!dbg[tabId]) {
       dbg[tabId] = { p: chrome.debugger.attach({ tabId }, '1.3'), t: null };
       try { await dbg[tabId].p; } catch (e) { delete dbg[tabId]; throw e; }
     } else await dbg[tabId].p;
     clearTimeout(dbg[tabId].t);
-    dbg[tabId].t = setTimeout(() => { chrome.debugger.detach({ tabId }).catch(() => {}); delete dbg[tabId]; }, 15000);
+    dbg[tabId].t = setTimeout(() => { chrome.debugger.detach({ tabId }).catch(() => {}); delete dbg[tabId]; }, 2000);
     return chrome.debugger.sendCommand({ tabId }, method, params);
   }
   chrome.debugger.onDetach.addListener((s) => { if (dbg[s.tabId]) { clearTimeout(dbg[s.tabId].t); delete dbg[s.tabId]; } });
@@ -148,7 +181,17 @@
     });
     const res = r && r.result;
     if (res && !res.csp) { if (res.err) throw new Error(res.err); return res.v; }
-    // CSP blocked eval → DevTools protocol
+    // The page's CSP blocks eval: user scripts (if allowed) or the DevTools protocol.
+    if (!settings.realInput && chrome.userScripts && chrome.userScripts.execute) {
+      try {
+        const [u] = await chrome.userScripts.execute({ target: { tabId }, world: 'USER_SCRIPT', js: [{ code: expr }] });
+        if (u && u.error) throw new Error(u.error);
+        return u ? u.result : undefined;
+      } catch (e) {
+        if (!/not enabled|allow user scripts|developer mode/i.test(String(e.message))) throw e;
+      }
+    }
+    if (!settings.realInput) throw new Error(`this site blocks eval (CSP). Use map/text/find instead, or eval ${NEED_REAL}`);
     const out = await cdp(tabId, 'Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, userGesture: true, timeout });
     if (out.exceptionDetails) throw new Error(out.exceptionDetails.exception && out.exceptionDetails.exception.description || out.exceptionDetails.text);
     return out.result.value !== undefined ? out.result.value : out.result.description || out.result.type;
@@ -160,7 +203,11 @@
     const t = await chrome.tabs.get(tabId);
     const format = a.format || 'jpeg';
     const quality = a.quality !== undefined ? +a.quality : 70;
+    if (a.full && !settings.realInput) throw new Error(`full=true ${NEED_REAL}. Take a normal shot, scroll, and shoot again`);
     let prev = null;
+    if (!t.active && !settings.followTabs && !(await inAgentWindow(t))) {
+      throw new Error('this tab is in the background and "Switch to Claude’s tabs" is off, so it was not brought to the front. Use map/text/find, or ask the user');
+    }
     if (!t.active) {
       const [cur] = await chrome.tabs.query({ active: true, windowId: t.windowId });
       prev = cur && cur.id;
@@ -199,7 +246,7 @@
     },
     open: async ({ url, active = false, wait = true }) => {
       if (!url) throw new Error('url required');
-      const t = await chrome.tabs.create({ url, active: !!active });
+      const t = settings.followTabs ? await chrome.tabs.create({ url, active: !!active }) : await openInAgentWindow(url);
       await setAccess(t.id, true); // tabs the agent opens itself stay accessible to it
       const p = wait ? waitLoad(t.id) : Promise.resolve(true);
       const done = (await chrome.tabs.get(t.id)).status === 'complete' || await p;
@@ -217,8 +264,14 @@
     reload: async (a) => { const id = await tabOf(a); const p = waitLoad(id); await chrome.tabs.reload(id, { bypassCache: !!a.hard }); return tabSummary(id, await p); },
     activate: async (a) => {
       const id = await tabOf(a);
-      const t = await chrome.tabs.update(id, { active: true });
-      await chrome.windows.update(t.windowId, { focused: true });
+      const tab = await chrome.tabs.get(id);
+      if (!settings.followTabs) {
+        if (!(await inAgentWindow(tab))) throw new Error('"Switch to Claude’s tabs" is off: the user’s tabs are not brought to the front. Work with tab=ID directly');
+        await chrome.tabs.update(id, { active: true }); // inside Claude's own window, no focus change
+        return tabSummary(id);
+      }
+      await chrome.tabs.update(id, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
       return tabSummary(id);
     },
     close: async (a) => { const id = await tabOf(a); await chrome.tabs.remove(id); return `closed ${id}`; },
@@ -237,8 +290,12 @@
 
     click: async (a) => {
       const tabId = await tabOf(a);
-      if (a.x !== undefined && a.y !== undefined) { await mouseClick(tabId, +a.x, +a.y, { button: a.button, count: a.count ? +a.count : 1 }); return `clicked at ${a.x},${a.y}`; }
-      if (a.real) {
+      if (a.x !== undefined && a.y !== undefined) {
+        if (!settings.realInput) return page(tabId, 'clickAt', a);
+        await mouseClick(tabId, +a.x, +a.y, { button: a.button, count: a.count ? +a.count : 1 });
+        return `clicked at ${a.x},${a.y}`;
+      }
+      if (a.real && settings.realInput) {
         const r = await page(tabId, 'rect', a);
         await mouseClick(tabId, r.x, r.y, { button: a.button, count: a.count ? +a.count : 1 });
         return `real-clicked ${r.desc}`;
@@ -247,14 +304,19 @@
     },
     type: async (a) => {
       const tabId = await tabOf(a);
-      if (!a.real) return page(tabId, 'type', a);
+      if (!a.real || !settings.realInput) return page(tabId, 'type', a);
       if (a.target !== undefined) { const r = await page(tabId, 'rect', a); await mouseClick(tabId, r.x, r.y); }
       if (a.clear !== false) await pressKeys(tabId, 'ctrl+a Backspace');
       await cdp(tabId, 'Input.insertText', { text: String(a.text || '') });
       if (a.enter) await pressKeys(tabId, 'Enter');
       return 'typed (real input)';
     },
-    key: async (a) => { const id = await tabOf(a); await pressKeys(id, a.keys); return `pressed ${a.keys}`; },
+    key: async (a) => {
+      const id = await tabOf(a);
+      if (!settings.realInput) return page(id, 'keys', a);
+      await pressKeys(id, a.keys);
+      return `pressed ${a.keys}`;
+    },
 
     eval: async (a) => evaluate(await tabOf(a), String(a.code || '')),
     shot: screenshot,

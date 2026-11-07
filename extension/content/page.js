@@ -112,6 +112,59 @@
       (c ? `\n⚠ CAPTCHA DETECTED (${c}). Do NOT try to solve or bypass it: stop and ask the user to solve it themselves, then continue.` : '');
   };
 
+  function clickElement(el, x, y) {
+    const r = el.getBoundingClientRect();
+    const o = { bubbles: true, cancelable: true, composed: true, clientX: x ?? r.left + r.width / 2, clientY: y ?? r.top + r.height / 2, button: 0, view: window };
+    const desc = describe(el);
+    el.dispatchEvent(new PointerEvent('pointerover', o)); el.dispatchEvent(new MouseEvent('mouseover', o));
+    el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new MouseEvent('mousedown', o));
+    if (el.focus) el.focus({ preventScroll: true });
+    el.dispatchEvent(new PointerEvent('pointerup', o)); el.dispatchEvent(new MouseEvent('mouseup', o));
+    el.click();
+    return desc;
+  }
+
+  const editable = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.tagName));
+  const setValue = (el, v) => {
+    const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+  };
+  const focusables = () => [...walk(document)].filter((e) => e.matches(INTERACTIVE) && !e.disabled && visible(e) && e.tabIndex >= 0);
+
+  // What the browser would do after an uncancelled keydown, for the keys agents use most.
+  function keyDefault(el, key, mods) {
+    const field = /^(INPUT|TEXTAREA)$/.test(el.tagName);
+    if (mods.ctrlKey || mods.metaKey) {
+      if (key.toLowerCase() === 'a') { if (field) el.select(); else document.execCommand('selectAll'); }
+      return;
+    }
+    if (key === 'Enter') {
+      if (el.tagName === 'TEXTAREA' || el.isContentEditable) document.execCommand('insertText', false, '\n');
+      else if (el.form) el.form.requestSubmit();
+      else if (el.matches('a[href],button,[role=button]')) el.click();
+    } else if (key === 'Tab') {
+      const list = focusables();
+      const next = list[(list.indexOf(el) + (mods.shiftKey ? -1 : 1) + list.length) % list.length];
+      if (next) next.focus();
+    } else if (key === 'Backspace' && field) {
+      const a = el.selectionStart ?? el.value.length;
+      const b = el.selectionEnd ?? a;
+      setValue(el, a !== b ? el.value.slice(0, a) + el.value.slice(b) : el.value.slice(0, Math.max(0, a - 1)) + el.value.slice(a));
+    } else if (key === 'Backspace' && el.isContentEditable) {
+      document.execCommand('delete');
+    } else if (!editable(el) && /^(PageDown|PageUp|Home|End|ArrowDown|ArrowUp| )$/.test(key)) {
+      const step = { PageDown: innerHeight * 0.85, ' ': innerHeight * 0.85, PageUp: -innerHeight * 0.85, ArrowDown: 60, ArrowUp: -60 }[key];
+      if (key === 'Home') scrollTo(0, 0); else if (key === 'End') scrollTo(0, document.documentElement.scrollHeight); else scrollBy(0, step);
+    } else if (key.length === 1 && field) {
+      const a = el.selectionStart ?? el.value.length;
+      const b = el.selectionEnd ?? a;
+      setValue(el, el.value.slice(0, a) + key + el.value.slice(b));
+    } else if (key.length === 1 && el.isContentEditable) {
+      document.execCommand('insertText', false, key);
+    }
+  }
+
   const api = {
     info: () => ({ captcha: captcha(), url: location.href, title: document.title, ready: document.readyState, scrollY: Math.round(scrollY), scrollMax: document.documentElement.scrollHeight - innerHeight, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, focused: document.activeElement && document.activeElement !== document.body ? describe(document.activeElement) : null }),
 
@@ -186,15 +239,34 @@
     click({ target }) {
       const el = resolve(target);
       el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
-      const r = el.getBoundingClientRect();
-      const o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, view: window };
-      const desc = describe(el);
-      el.dispatchEvent(new PointerEvent('pointerover', o)); el.dispatchEvent(new MouseEvent('mouseover', o));
-      el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new MouseEvent('mousedown', o));
-      if (el.focus) el.focus({ preventScroll: true });
-      el.dispatchEvent(new PointerEvent('pointerup', o)); el.dispatchEvent(new MouseEvent('mouseup', o));
-      el.click();
-      return `clicked ${desc}`;
+      return `clicked ${clickElement(el)}`;
+    },
+
+    // Click at viewport coordinates (CSS pixels) with page events, no debugger.
+    clickAt({ x, y }) {
+      const el = document.elementFromPoint(+x, +y);
+      if (!el) throw new Error(`nothing at ${x},${y}`);
+      return `clicked at ${x},${y}: ${clickElement(el, +x, +y)}`;
+    },
+
+    // Keys as page events: "Enter", "Tab", "shift+Tab", "Escape", "Backspace", "ctrl+a", "PageDown", "a".
+    // Sites that only trust real keyboard input need "Real click and keyboard" instead.
+    keys({ keys = '' } = {}) {
+      const done = [];
+      for (const combo of String(keys).split(/\s+/).filter(Boolean)) {
+        const parts = combo.split('+');
+        const main = parts.pop();
+        const has = (re) => parts.some((p) => re.test(p));
+        const mods = { ctrlKey: has(/^(ctrl|control)$/i), shiftKey: has(/^shift$/i), altKey: has(/^alt$/i), metaKey: has(/^(meta|cmd|win)$/i) };
+        const key = { Esc: 'Escape', Space: ' ', Return: 'Enter' }[main] || main;
+        const code = key.length === 1 ? (/[a-z]/i.test(key) ? 'Key' + key.toUpperCase() : /\d/.test(key) ? 'Digit' + key : '') : key;
+        const el = document.activeElement || document.body;
+        const opts = { key, code, bubbles: true, cancelable: true, composed: true, ...mods };
+        if (el.dispatchEvent(new KeyboardEvent('keydown', opts))) keyDefault(el, key, mods);
+        el.dispatchEvent(new KeyboardEvent('keyup', opts));
+        done.push(combo);
+      }
+      return `pressed ${done.join(' ')}`;
     },
 
     focus({ target }) { const el = resolve(target); el.focus(); return `focused ${describe(el)}`; },

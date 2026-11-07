@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_name__",
   "short_name": "BrowserHand",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "__MSG_description__",
   "default_locale": "en",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoeHo+/pZP45Ai62saYfMZxHn/L8kJd4o4ne+V32L4/bwrCre8+4fegUhlW7S2E/aWYbREwydNQpMXGV5D63q4EUgLGz/uK7FgEWKghfBiX7Ib0pdwJIJ7WAjuHvs0WACtuKsDzhHVPsLcj+jj8ixFkm05NhyBamkJmvPvLqXzrVMzY9KN7Us1cf8IvREWaeAtAMAZSb0aE0XlXnmmG671AeOjFGv/VPcpPP5IvwdfpKV0U0hEJGzc5nmASAsOa6RSlXkN0ISbu9fKW63vUACDS724SZc69v6sj93YwTaCuxH6k9WDNqq+3CR/tbMTktWU98jfd0Mmja7qWqD/VYWGQIDAQAB",
@@ -18,7 +18,8 @@
     "debugger",
     "webRequest",
     "alarms",
-    "storage"
+    "storage",
+    "userScripts"
   ],
   "host_permissions": [
     "<all_urls>"

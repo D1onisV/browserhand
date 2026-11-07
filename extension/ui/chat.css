@@ -283,3 +283,7 @@ select option { background: var(--surface); color: var(--text); }
 .pop-title .ghost.sm { width: 24px; height: 24px; margin: -4px -6px -4px auto; }
 .ghost.spin svg { animation: spin .8s linear infinite; }
 .pop-foot a { color: var(--accent); text-underline-offset: 3px; }
+
+.msg ul, .msg ol { margin: var(--s1) 0; padding-left: var(--s5); }
+.msg li { margin: 2px 0; }
+.msg li::marker { color: var(--muted); }

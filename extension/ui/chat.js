@@ -46,12 +46,30 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function markdown(src) {
   return String(src).split(/```(?:[\w-]*)\n?([\s\S]*?)```/g).map((part, i) => {
     if (i % 2) return `<pre><code>${esc(part.replace(/\n$/, ''))}</code></pre>`;
-    return esc(part)
+    return renderLists(esc(part)
       .replace(/`([^`\n]+)`/g, '<code>$1</code>')
       .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
       .replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+      .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>'));
   }).join('');
+}
+
+// "- item" / "* item" / "1. item" lines become real lists.
+function renderLists(html) {
+  const out = [];
+  let kind = null;
+  for (const line of html.split('\n')) {
+    const m = /^\s*(?:([-*•])|(\d+)[.)])\s+(.*)$/.exec(line);
+    const k = m ? (m[1] ? 'ul' : 'ol') : null;
+    if (k !== kind) {
+      if (kind) out.push(`</${kind}>`);
+      if (k) out.push(`<${k}>`);
+      kind = k;
+    }
+    out.push(k ? `<li>${m[3]}</li>` : line + '\n');
+  }
+  if (kind) out.push(`</${kind}>`);
+  return out.join('').replace(/\n+(<(?:ul|ol)>)/g, '$1').replace(/\n$/, '');
 }
 
 const clock = (ts) => new Date(ts).toLocaleTimeString(currentLang, { hour: '2-digit', minute: '2-digit' });
@@ -367,6 +385,8 @@ $('lang').onchange = (e) => {
 $('enabled').onchange = (e) => chrome.storage.local.set({ enabled: e.target.checked });
 $('newTabs').onchange = (e) => send({ type: 'tab-default', allowed: e.target.checked });
 $('cookieReject').onchange = (e) => chrome.storage.local.set({ cookieReject: e.target.checked });
+$('followTabs').onchange = (e) => chrome.storage.local.set({ followTabs: e.target.checked });
+$('realInput').onchange = (e) => chrome.storage.local.set({ realInput: e.target.checked });
 $('newChat').onclick = async () => {
   $('menu').hidden = true;
   if (confirm(t('menu.newChatConfirm'))) await send({ type: 'chat-clear' });
@@ -425,9 +445,11 @@ chrome.runtime.onMessage.addListener((m) => {
 });
 
 (async () => {
-  const stored = await chrome.storage.local.get({ prefs, cookieReject: true, lang: null });
+  const stored = await chrome.storage.local.get({ prefs, cookieReject: true, followTabs: true, realInput: false, lang: null });
   prefs = { ...prefs, ...stored.prefs };
   $('cookieReject').checked = stored.cookieReject;
+  $('followTabs').checked = stored.followTabs;
+  $('realInput').checked = stored.realInput;
   if (!params.has('lang') && stored.lang && stored.lang !== currentLang) {
     setLanguage(stored.lang);
     localStorage.lang = currentLang;

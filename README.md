@@ -15,7 +15,9 @@
   English · Українська · Русский · Español · Deutsch
 </p>
 
----
+<p align="center">
+  <img src="docs/screenshot.png" width="820" alt="BrowserHand chat window in light and dark themes">
+</p>
 
 ## What is BrowserHand?
 
@@ -37,7 +39,8 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
 - **Per-tab access.** A checkbox for every tab. Hidden tabs don't exist for Claude: it can't list, read, click or screenshot them.
 - **Two ways to run.** Send requests to your open Claude Code session, or let the host run Claude Code on its own with the model and effort you pick (Opus, Sonnet, Haiku, Fable).
 - **Reads pages the way an agent needs.** A compact map of headings and controls with stable ids, text, cleaned HTML, console logs and network requests.
-- **Acts like a person.** Clicks, typing, keys, scrolling and hovering, with real mouse and keyboard input when a site ignores synthetic events.
+- **Acts like a person.** Clicks, typing, keys, scrolling and hovering as page events, so the browser shows no debugging bar. Turn on **Real click and keyboard** for the rare site that only trusts real input.
+- **Stays out of your way.** Turn off **Switch to Claude’s tabs** and Claude works in its own background window while you keep using yours.
 - **Watches video, listens to audio.** Contact sheets of frames with timestamps, frame-by-frame for a chosen moment, local speech recognition with subtitles, tempo and beat detection, plus trimming, joining, 9:16, GIFs and burned-in subtitles.
 - **Usage limits at a glance.** Your current session and weekly limits, read from claude.ai with your existing sign-in.
 - **Rejects cookie banners.** Clicks "Reject" or "Only necessary". Never "Accept".
@@ -75,6 +78,21 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
    3. Click **Load unpacked** and choose the `extension` folder.
 
 4. **Open the chat.** Click the BrowserHand icon or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>. A green dot means everything is connected.
+
+## Settings
+
+The menu ⋯ in the chat window:
+
+| Setting | Default | What it does |
+|---|---|---|
+| Browser access | on | Off disconnects the extension from the host at once. |
+| New tabs get access | on | Whether tabs you open later are visible to Claude. Tabs Claude opens are always visible to it. |
+| Reject cookie banners | on | Clicks “Reject” or “Only necessary”, never “Accept”. |
+| Switch to Claude’s tabs | on | Off: Claude’s tabs open in a separate unfocused window, and your tabs are never brought to the front. Screenshots of your background tabs are skipped then. |
+| Real click and keyboard | off | Trusted input, full-page screenshots and `eval` on strict sites through the browser’s debugger. While it is in use, the browser shows a “debugging this browser” bar. |
+| Language | English | English, Українська, Русский, Español, Deutsch. |
+
+The sun/moon icon switches the light and dark themes.
 
 ## Two ways to run requests
 
