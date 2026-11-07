@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- After an update the extension reloads only once the old host has closed the connection, and the host restarts without waiting for open connections. Before, the reloaded extension could stay attached to the old host while a new one started without it.
+- The connection heals itself: the extension pings the host every 10 seconds and reconnects when there is no answer, and the host adopts whichever connection talks to it.
+
 ## 0.3.1
 
 - Updating on Windows uses the system's own `tar`, so a GNU tar from Git in PATH no longer breaks unpacking.

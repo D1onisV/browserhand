@@ -152,6 +152,7 @@ function connect() {
   socket = ws;
 
   ws.onopen = () => {
+    lastPong = Date.now();
     ws.send(JSON.stringify({ hello: true, version: VERSION }));
     flushQueue();
     updateBadge();
@@ -161,6 +162,7 @@ function connect() {
   ws.onmessage = async (event) => {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
+    if (msg.type === 'pong') { lastPong = Date.now(); return; }
     if (msg.type && (msg.type.startsWith('chat-') || msg.type === 'update-status')) return onChatFrame(msg);
     if (!msg.id) return;
     let reply;
@@ -170,6 +172,7 @@ function connect() {
   };
 
   ws.onclose = () => {
+    if (update.reloadOnClose) return chrome.runtime.reload();
     if (socket === ws) socket = null;
     chat.listener = false;
     updateBadge();
@@ -179,7 +182,13 @@ function connect() {
 }
 
 // A WebSocket keeps the service worker alive; the alarm wakes it up to reconnect.
-setInterval(() => { if (isOpen()) socket.send('{"ping":1}'); }, 20000);
+// The host answers every ping; a silent connection is dropped and opened again.
+let lastPong = 0;
+setInterval(() => {
+  if (!isOpen()) return;
+  if (Date.now() - lastPong > 25000) { socket.close(); return; }
+  socket.send('{"ping":1}');
+}, 10000);
 chrome.alarms.create('keepalive', { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(connect);
 chrome.runtime.onStartup.addListener(connect);
@@ -369,7 +378,11 @@ async function checkForUpdate(force = false) {
 function onUpdateStatus(msg) {
   update.state = msg.state;
   update.detail = msg.detail || '';
-  if (msg.state === 'done') setTimeout(() => chrome.runtime.reload(), 500);
+  // Reload once the old host has closed the connection, so the new code connects to the new host.
+  if (msg.state === 'done') {
+    update.reloadOnClose = true;
+    setTimeout(() => chrome.runtime.reload(), 8000); // in case the close never comes
+  }
   if (msg.state === 'current') update.available = false;
 }
 

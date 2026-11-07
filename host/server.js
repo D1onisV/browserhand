@@ -311,12 +311,16 @@ async function runUpdate() {
   }
 }
 
+// Refuse new connections, drop the current ones, start the new copy (it waits for the port), exit.
+let restarting = false;
+
 function restart() {
-  server.close(() => {
-    spawn(process.execPath, [path.join(HOST_DIR, 'server.js')], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-    process.exit(0);
-  });
-  wss.clients.forEach((c) => c.terminate());
+  restarting = true;
+  for (const client of wss.clients) client.terminate();
+  wss.close();
+  server.close();
+  spawn(process.execPath, [path.join(HOST_DIR, 'server.js')], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  setTimeout(() => process.exit(0), 200);
 }
 
 // ---------- HTTP API for local clients ----------
@@ -411,7 +415,7 @@ const wss = new WebSocketServer({
   server,
   path: '/ext',
   maxPayload: 64 * 1024 * 1024,
-  verifyClient: ({ origin }) => allowedOrigin(origin),
+  verifyClient: ({ origin }) => !restarting && allowedOrigin(origin),
 });
 
 wss.on('connection', (ws) => {
@@ -422,6 +426,9 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => {
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
+    // Whichever connection talks is the extension (heals a connection the host lost track of).
+    if (extension !== ws) extension = ws;
+    if (msg.ping) { ws.send('{"type":"pong"}'); return; }
     if (msg.hello) { extensionInfo = msg; return; }
     if (msg.type === 'chat-send') {
       const hasImages = Array.isArray(msg.images) && msg.images.length > 0;
@@ -446,4 +453,13 @@ wss.on('connection', (ws) => {
   });
 });
 
-server.listen(PORT, '127.0.0.1', () => console.log(`BrowserHand host listening on 127.0.0.1:${PORT}`));
+// A copy started during a restart waits for the old one to release the port; a duplicate copy gives up.
+function listen(attempt = 0) {
+  server.once('error', (e) => {
+    if (e.code === 'EADDRINUSE' && attempt < 40) return setTimeout(() => listen(attempt + 1), 250);
+    console.error(e.message);
+    process.exit(1);
+  });
+  server.listen(PORT, '127.0.0.1', () => console.log(`BrowserHand host listening on 127.0.0.1:${PORT}`));
+}
+listen();
