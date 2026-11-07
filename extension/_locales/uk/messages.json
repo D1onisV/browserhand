@@ -1,0 +1,11 @@
+{
+  "name": {
+    "message": "BrowserHand"
+  },
+  "description": {
+    "message": "Дає Claude Code бачити й керувати браузером: вкладки, сторінки, кліки, скріншоти та відео."
+  },
+  "openChat": {
+    "message": "Відкрити BrowserHand"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "browserhand-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local host that connects the BrowserHand extension with Claude Code",
+  "license": "MIT",
+  "main": "server.js",
+  "bin": { "bh": "bh.js" },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check bh.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

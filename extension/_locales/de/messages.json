@@ -1,0 +1,11 @@
+{
+  "name": {
+    "message": "BrowserHand"
+  },
+  "description": {
+    "message": "Lässt Claude Code deinen Browser sehen und steuern: Tabs, Seiten, Klicks, Screenshots und Video."
+  },
+  "openChat": {
+    "message": "BrowserHand öffnen"
+  }
+}

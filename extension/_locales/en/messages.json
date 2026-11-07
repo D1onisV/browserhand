@@ -1,0 +1,11 @@
+{
+  "name": {
+    "message": "BrowserHand"
+  },
+  "description": {
+    "message": "Let Claude Code see and drive your browser: tabs, pages, clicks, screenshots and video."
+  },
+  "openChat": {
+    "message": "Open BrowserHand"
+  }
+}

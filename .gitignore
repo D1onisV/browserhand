@@ -1,0 +1,11 @@
+node_modules/
+host/data/
+host/.venv-media/
+host/config.json
+host/start-host.vbs
+host/start-host.sh
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc

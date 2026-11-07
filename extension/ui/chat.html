@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrowserHand</title>
+<link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <header>
+    <span class="dot" id="dot"></span>
+    <span class="title">BrowserHand</span>
+    <span class="grow"></span>
+    <button class="ghost" id="usageBtn" data-i18n-title="usage.button" data-i18n-aria="usage.button">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1 1 11 0"/><path d="M8 11.5 10.6 7"/></svg>
+      <span class="badge" id="usageBadge" hidden></span>
+    </button>
+    <button class="ghost" id="themeBtn">
+      <svg id="icoSun" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg>
+      <svg id="icoMoon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"/></svg>
+    </button>
+    <button class="ghost" id="menuBtn" data-i18n-title="menu.button" data-i18n-aria="menu.button">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
+    </button>
+
+    <div class="pop" id="usagePop" hidden>
+      <div class="pop-title">
+        <span data-i18n="usage.title"></span>
+        <button class="ghost sm" id="usageRefresh" data-i18n-title="usage.refresh" data-i18n-aria="usage.refresh">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.55"/><path d="M13 2.5V5h-2.5"/></svg>
+        </button>
+      </div>
+      <div class="pop-body" id="usageRows"></div>
+      <div class="pop-foot" id="usageFoot"></div>
+    </div>
+
+    <div class="menu" id="menu" hidden>
+      <label><input type="checkbox" id="enabled"><span data-i18n="menu.access"></span></label>
+      <label><input type="checkbox" id="newTabs"><span data-i18n="menu.newTabs"></span></label>
+      <label data-i18n-title="menu.cookiesHint"><input type="checkbox" id="cookieReject"><span data-i18n="menu.cookies"></span></label>
+      <div class="sep"></div>
+      <label class="row-select"><span data-i18n="menu.language"></span><select id="lang"></select></label>
+      <div class="sep"></div>
+      <button id="newChat" data-i18n="menu.newChat"></button>
+    </div>
+  </header>
+
+  <section id="tabsBox" class="collapsed">
+    <button id="tabsToggle" aria-controls="tabsBody">
+      <svg class="chev" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+      <span data-i18n="tabs.label"></span><span id="tabsCount" class="muted"></span>
+    </button>
+    <div id="tabsBody">
+      <div id="tabsList"></div>
+      <div class="tabs-actions">
+        <button class="link" id="allOn" data-i18n="tabs.allOn"></button>
+        <button class="link" id="allOff" data-i18n="tabs.allOff"></button>
+      </div>
+    </div>
+  </section>
+
+  <main id="list"></main>
+
+  <div id="progress" hidden>
+    <span class="spinner"></span><span id="progressText"></span>
+    <button class="link" id="stop" data-i18n="chat.stop" hidden></button>
+  </div>
+
+  <footer>
+    <div class="composer" id="composer">
+      <div id="suggest" hidden>
+        <button class="sug" id="sugVideo">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M5 3.5v9l7-4.5z"/></svg>
+          <span data-i18n="composer.video"></span>
+        </button>
+      </div>
+      <div id="thumbs"></div>
+      <textarea id="input" rows="1"></textarea>
+      <div class="bar">
+        <select id="model" data-i18n-title="composer.model"></select>
+        <select id="effort" data-i18n-title="composer.effort"></select>
+        <button class="chip" id="tabChip"></button>
+        <span class="grow"></span>
+        <button class="ghost" id="attach" data-i18n-title="composer.attach" data-i18n-aria="composer.attach">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l4-4"/></svg>
+        </button>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <button id="send" disabled data-i18n-title="composer.send" data-i18n-aria="composer.send">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </footer>
+
+  <script src="i18n.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>

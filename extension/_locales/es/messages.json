@@ -1,0 +1,11 @@
+{
+  "name": {
+    "message": "BrowserHand"
+  },
+  "description": {
+    "message": "Permite que Claude Code vea y maneje tu navegador: pestañas, páginas, clics, capturas y vídeo."
+  },
+  "openChat": {
+    "message": "Abrir BrowserHand"
+  }
+}
