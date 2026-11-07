@@ -3,6 +3,7 @@
 
 const VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_PORT = 17321;
+const UPDATE_REPO = 'D1onisV/browserhand';
 
 // ---------- commands ----------
 
@@ -138,7 +139,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 function updateBadge() {
-  chrome.action.setBadgeText({ text: !enabled ? 'OFF' : isOpen() ? 'ON' : '' });
+  const text = !enabled ? 'OFF' : update.available ? 'NEW' : isOpen() ? 'ON' : '';
+  chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color: isOpen() ? '#0f766e' : '#6b7280' });
 }
 
@@ -197,6 +199,7 @@ const chatState = () => ({
   queued: chat.queued,
   progress: chat.progress,
   usage: chat.usage,
+  update,
 });
 const broadcastChat = () => chrome.runtime.sendMessage({ type: 'chat-event', state: chatState() }).catch(() => {});
 
@@ -217,6 +220,7 @@ function onChatFrame(msg) {
     case 'chat-listener': chat.listener = !!msg.on; break;
     case 'chat-progress': chat.progress = msg.progress || null; break;
     case 'chat-usage': chat.usage = newerUsage(chat.usage, msg.usage); break;
+    case 'update-status': onUpdateStatus(msg); break;
   }
   if (chat.messages.length > MAX_MESSAGES) chat.messages.splice(0, chat.messages.length - MAX_MESSAGES);
   broadcastChat();
@@ -251,6 +255,15 @@ async function sendChat(msg) {
 
 const popupHandlers = {
   'chat-get': () => chatState(),
+  'update-check': async () => { await checkForUpdate(true); return { ok: true }; },
+  'update-run': () => {
+    if (!isOpen()) return { ok: false, error: 'no-host' };
+    update.state = 'running';
+    update.detail = '';
+    socket.send('{"type":"update-run"}');
+    broadcastChat();
+    return { ok: true };
+  },
   'usage-refresh': async () => {
     try { chat.usage = await fetchUsage(); broadcastChat(); return { ok: true }; }
     catch (e) { return { ok: false, error: e.message }; }
@@ -320,3 +333,46 @@ async function fetchUsage() {
     : undefined);
   return { five_hour: window(usage.five_hour), seven_day: window(usage.seven_day), updatedAt: Date.now(), source: 'claude.ai' };
 }
+
+// ---------- updates ----------
+// Once a day the extension asks GitHub for the latest release; the host does the actual update
+// (download, replace files, keep user data), then the extension reloads itself.
+
+const update = { latest: null, available: false, page: null, state: null, detail: '' };
+
+const isNewer = (a, b) => {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+};
+
+async function checkForUpdate(force = false) {
+  const { updateInfo } = await chrome.storage.local.get({ updateInfo: null });
+  if (updateInfo) Object.assign(update, { latest: updateInfo.latest, page: updateInfo.page });
+  if (force || !updateInfo || Date.now() - updateInfo.checkedAt > 24 * 3600e3) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`, { headers: { accept: 'application/vnd.github+json' } });
+      if (r.ok) {
+        const release = await r.json();
+        update.latest = String(release.tag_name || '').replace(/^v/, '');
+        update.page = release.html_url;
+        await chrome.storage.local.set({ updateInfo: { latest: update.latest, page: update.page, checkedAt: Date.now() } });
+      }
+    } catch { /* offline: try again next time */ }
+  }
+  update.available = !!update.latest && isNewer(update.latest, VERSION);
+  updateBadge();
+  broadcastChat();
+}
+
+function onUpdateStatus(msg) {
+  update.state = msg.state;
+  update.detail = msg.detail || '';
+  if (msg.state === 'done') setTimeout(() => chrome.runtime.reload(), 500);
+  if (msg.state === 'current') update.available = false;
+}
+
+chrome.alarms.create('update-check', { periodInMinutes: 360 });
+chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === 'update-check') checkForUpdate(); });
+checkForUpdate();

@@ -12,6 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
+const updater = require('./update');
 
 const HOST_DIR = __dirname;
 const ROOT = path.resolve(HOST_DIR, '..');
@@ -286,6 +287,38 @@ function replaceDataUrls(value) {
   return value;
 }
 
+// ---------- self-update ----------
+// Replaces the files with the latest release, then reloads the extension and restarts the host.
+
+let updating = false;
+
+async function runUpdate() {
+  if (updating) return { ok: false, error: 'an update is already running' };
+  updating = true;
+  const status = (state, detail) => toExtension({ type: 'update-status', state, detail });
+  status('running');
+  try {
+    const r = await updater.update({ log: (line) => status('running', line) });
+    if (!r.updated) { status('current', r.installed); return { ok: true, result: `already up to date (${r.installed})` }; }
+    status('done', r.installed);
+    setTimeout(restart, 800);
+    return { ok: true, result: `updated to ${r.installed}` };
+  } catch (e) {
+    status('error', e.message);
+    return { ok: false, error: e.message };
+  } finally {
+    updating = false;
+  }
+}
+
+function restart() {
+  server.close(() => {
+    spawn(process.execPath, [path.join(HOST_DIR, 'server.js')], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    process.exit(0);
+  });
+  wss.clients.forEach((c) => c.terminate());
+}
+
 // ---------- HTTP API for local clients ----------
 
 const routes = {
@@ -316,6 +349,13 @@ const routes = {
     }
     return { ok: true, result: state.usage };
   },
+
+  'GET /update': async () => {
+    const r = await updater.check();
+    return { ok: true, result: { installed: r.installed, latest: r.latest, available: r.available, page: r.page } };
+  },
+
+  'POST /update': () => runUpdate(),
 
   'POST /cmd': async (req) => {
     const { cmd, args = {} } = await readBody(req);
@@ -390,6 +430,7 @@ wss.on('connection', (ws) => {
     }
     if (msg.type === 'chat-stop') return stopWorker();
     if (msg.type === 'chat-clear') return clearChat();
+    if (msg.type === 'update-run') return runUpdate();
     const p = pending.get(msg.id);
     if (p) { clearTimeout(p.timer); pending.delete(msg.id); p.resolve(msg); }
   });

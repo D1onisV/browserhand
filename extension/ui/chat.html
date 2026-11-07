@@ -21,6 +21,7 @@
     </button>
     <button class="ghost" id="menuBtn" data-i18n-title="menu.button" data-i18n-aria="menu.button">
       <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
+      <span class="badge update" id="menuBadge" hidden></span>
     </button>
 
     <div class="pop" id="usagePop" hidden>
@@ -35,6 +36,11 @@
     </div>
 
     <div class="menu" id="menu" hidden>
+      <div class="update-row" id="updateRow" hidden>
+        <button id="updateBtn"></button>
+        <div class="update-note" id="updateNote"></div>
+        <div class="sep"></div>
+      </div>
       <label><input type="checkbox" id="enabled"><span data-i18n="menu.access"></span></label>
       <label><input type="checkbox" id="newTabs"><span data-i18n="menu.newTabs"></span></label>
       <label data-i18n-title="menu.cookiesHint"><input type="checkbox" id="cookieReject"><span data-i18n="menu.cookies"></span></label>

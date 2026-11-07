@@ -12,6 +12,7 @@
 //   node host/bh.js media look https://youtu.be/...
 //
 // Chat (session mode): watch | reply "text" | reply - < file | progress "step" | chat [n] | usage '<json>'
+// Updates: update [--check]
 
 const fs = require('fs');
 const path = require('path');
@@ -173,6 +174,18 @@ async function main() {
       const r = await request('POST', '/usage', JSON.parse(rest.join(' ') || '{}'));
       if (!r.ok) throw new Error(r.error);
       console.log(JSON.stringify(r.result));
+      return;
+    }
+    case 'update': {
+      if (rest.includes('--check')) {
+        const r = await request('GET', '/update');
+        if (!r.ok) throw new Error(r.error);
+        console.log(`installed ${r.result.installed}, latest ${r.result.latest}${r.result.available ? ' — update available' : ' — up to date'}`);
+        return;
+      }
+      const r = await request('POST', '/update');
+      if (!r.ok) throw new Error(r.error);
+      console.log(r.result);
       return;
     }
     case 'chat': {

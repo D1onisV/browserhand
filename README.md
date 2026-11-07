@@ -56,7 +56,9 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
 
 ## Quick start
 
-1. **Get the code**
+1. **Get the latest version**
+
+   Download **[browserhand.zip](https://github.com/D1onisV/browserhand/releases/latest/download/browserhand.zip)** (always the newest release) and unzip it, or clone the repository:
 
    ```bash
    git clone https://github.com/D1onisV/browserhand.git
@@ -78,6 +80,19 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
    3. Click **Load unpacked** and choose the `extension` folder.
 
 4. **Open the chat.** Click the BrowserHand icon or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>. A green dot means everything is connected.
+
+## Updating
+
+BrowserHand checks for a new release once a day. When there is one, the menu ⋯ shows **Update to vX.Y.Z** and the toolbar icon shows **NEW**. One click downloads the release, replaces the files, keeps your chats, settings and media tools, and reloads the extension.
+
+From a terminal:
+
+```bash
+node host/bh.js update          # update now
+node host/bh.js update --check  # only compare versions
+```
+
+A git checkout is updated with `git pull`. If the host is not running, `node host/update.js` does the same on its own. Every version is listed on the [releases page](https://github.com/D1onisV/browserhand/releases) with its notes.
 
 ## Settings
 
@@ -151,6 +166,7 @@ Create `host/config.json` to change the defaults:
 | `port` | `17321` | Port of the local host. Set the same value as `hostPort` in the extension's storage. |
 | `extensionIds` | the ID pinned by the manifest key | Extensions allowed to connect. Add your ID if you publish your own build. |
 | `claudeBin` | found automatically | Path to the `claude` executable. |
+| `updateRepo` | `D1onisV/browserhand` | Where updates come from (`owner/name` on GitHub). |
 
 Environment variables `BH_PORT` and `CLAUDE_BIN` override the file.
 

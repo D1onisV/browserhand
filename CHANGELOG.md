@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Releases: every version is published on GitHub as **browserhand.zip**; the link to the latest release never changes.
+- One-click updates: the extension checks for a new release once a day and offers **Update** in the menu ⋯. The host downloads it, replaces the files and keeps your chats, settings and media tools.
+- `node host/bh.js update` and `node host/update.js` update from the terminal.
+
 ## 0.2.0
 
 - No more "debugging this browser" bar during normal work. Trusted mouse and keyboard input is now the **Real click and keyboard** setting, off by default; clicks, typing and keys use page events otherwise.

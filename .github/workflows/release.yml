@@ -1,0 +1,55 @@
+# Pushing a tag like v0.3.0 builds browserhand.zip and publishes a GitHub release.
+# The newest release is always at:
+#   https://github.com/D1onisV/browserhand/releases/latest/download/browserhand.zip
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the version and the code
+        run: |
+          VERSION=$(node -p "require('./extension/manifest.json').version")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "extension/manifest.json says $VERSION, the tag is $GITHUB_REF_NAME"
+            exit 1
+          fi
+          node scripts/check.js
+
+      - name: Build browserhand.zip
+        run: git archive --format=zip --prefix=browserhand/ -o browserhand.zip HEAD
+
+      - name: Write release notes
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '$0 == "## " v { found = 1; next } /^## / { found = 0 } found' CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ### Install
+
+          Download **browserhand.zip** below, unzip it, run `node setup.js --autostart` in the folder,
+          then load the `extension` folder on your browser's extensions page (Developer mode → Load unpacked).
+
+          ### Update
+
+          Already installed? Click **Update** in the extension's menu ⋯, or run `node host/bh.js update`.
+          Your chats, settings and media tools are kept.
+          EOF
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: browserhand.zip
+          body_path: notes.md

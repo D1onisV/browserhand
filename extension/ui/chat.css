@@ -287,3 +287,12 @@ select option { background: var(--surface); color: var(--text); }
 .msg ul, .msg ol { margin: var(--s1) 0; padding-left: var(--s5); }
 .msg li { margin: 2px 0; }
 .msg li::marker { color: var(--muted); }
+
+/* update offer at the top of the menu */
+.update-row { display: flex; flex-direction: column; }
+#updateBtn { font-weight: 600; color: var(--accent); }
+#updateBtn:disabled { color: var(--muted); cursor: default; }
+.update-note { padding: 0 var(--s3) var(--s2); font-size: var(--t-xs); color: var(--muted); }
+.update-note:empty { display: none; }
+.update-note a { color: var(--muted); text-underline-offset: 3px; }
+.badge.update { background: var(--accent); }

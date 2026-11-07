@@ -113,6 +113,7 @@ function renderStatus() {
   document.querySelector('.title').title = tip;
   $('enabled').checked = state.enabled !== false;
   renderUsage();
+  renderUpdate();
 }
 
 const level = (pct) => (pct >= 95 ? 'max' : pct >= 80 ? 'hi' : '');
@@ -155,6 +156,26 @@ function renderUsage() {
   if (usageError === 'login') foot.innerHTML = t('usage.signIn', { link: '<a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a>' });
   else if (usageError) foot.textContent = t('usage.failed');
   else if (usage.updatedAt) foot.textContent = t('usage.updated', { t: clock(usage.updatedAt) }) + (usage.source === 'claude.ai' ? ' · claude.ai' : '');
+}
+
+// ---------- updates ----------
+
+function renderUpdate() {
+  const u = state.update || {};
+  const show = u.available || ['running', 'done', 'error'].includes(u.state);
+  $('updateRow').hidden = !show;
+  $('menuBadge').hidden = !u.available || u.state === 'running';
+  if (!show) return;
+  const btn = $('updateBtn');
+  btn.disabled = u.state === 'running' || u.state === 'done';
+  btn.textContent = u.state === 'running' ? t('update.running')
+    : u.state === 'done' ? t('update.done')
+      : t('update.button', { v: u.latest });
+  const note = $('updateNote');
+  if (u.state === 'error') note.textContent = t('update.failed', { detail: u.detail });
+  else if (u.state === 'running') note.textContent = u.detail || '';
+  else if (u.page) note.innerHTML = `<a href="${esc(u.page)}" target="_blank" rel="noopener">${t('update.notes')}</a>`;
+  else note.textContent = '';
 }
 
 // ---------- messages ----------
@@ -387,6 +408,13 @@ $('newTabs').onchange = (e) => send({ type: 'tab-default', allowed: e.target.che
 $('cookieReject').onchange = (e) => chrome.storage.local.set({ cookieReject: e.target.checked });
 $('followTabs').onchange = (e) => chrome.storage.local.set({ followTabs: e.target.checked });
 $('realInput').onchange = (e) => chrome.storage.local.set({ realInput: e.target.checked });
+$('updateBtn').onclick = async (e) => {
+  e.stopPropagation();
+  const r = await send({ type: 'update-run' });
+  if (!r || !r.ok) {
+    $('updateNote').textContent = r && r.error === 'no-host' ? t('update.noHost') : t('update.failed', { detail: (r && r.error) || '' });
+  }
+};
 $('newChat').onclick = async () => {
   $('menu').hidden = true;
   if (confirm(t('menu.newChatConfirm'))) await send({ type: 'chat-clear' });
