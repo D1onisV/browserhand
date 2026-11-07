@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Updating on Windows uses the system's own `tar`, so a GNU tar from Git in PATH no longer breaks unpacking.
+- After an update the extension reloads itself as intended (the "updated" signal was being dropped). If you update from 0.3.0, reload the extension once on the extensions page.
+
 ## 0.3.0
 
 - Releases: every version is published on GitHub as **browserhand.zip**; the link to the latest release never changes.

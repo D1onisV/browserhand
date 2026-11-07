@@ -161,7 +161,7 @@ function connect() {
   ws.onmessage = async (event) => {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
-    if (msg.type && msg.type.startsWith('chat-')) return onChatFrame(msg);
+    if (msg.type && (msg.type.startsWith('chat-') || msg.type === 'update-status')) return onChatFrame(msg);
     if (!msg.id) return;
     let reply;
     try { reply = { id: msg.id, ok: true, result: await run(msg.cmd, msg.args) }; }

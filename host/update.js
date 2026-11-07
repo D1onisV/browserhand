@@ -79,9 +79,14 @@ function copyOver(from, to, rel = '') {
 
 function unzip(zipFile, dir) {
   fs.mkdirSync(dir, { recursive: true });
-  // Windows 10+ and macOS ship bsdtar, which reads zip files; most Linux systems have unzip.
-  if (process.platform === 'linux') execFileSync('unzip', ['-q', '-o', zipFile, '-d', dir]);
-  else execFileSync('tar', ['-xf', zipFile, '-C', dir]);
+  if (process.platform === 'win32') {
+    // Use Windows' own bsdtar: a GNU tar from Git or MSYS earlier in PATH can't read "C:\..." paths.
+    const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+    if (fs.existsSync(tar)) return execFileSync(tar, ['-xf', zipFile, '-C', dir]);
+    return execFileSync('powershell', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${zipFile}' -DestinationPath '${dir}' -Force`]);
+  }
+  if (process.platform === 'darwin') return execFileSync('tar', ['-xf', zipFile, '-C', dir]); // bsdtar reads zip
+  return execFileSync('unzip', ['-q', '-o', zipFile, '-d', dir]);
 }
 
 async function update({ log = console.log } = {}) {
