@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// BrowserHand setup:  node setup.js [--autostart] [--media]
+// BrowserHand setup:  node setup.js [--autostart] [--media] [--no-skill]
 //
 // Installs the host's dependency, writes a launcher for this OS and this folder, optionally
-// registers it to run at login (--autostart) and installs the video/audio tools (--media),
+// registers it to run at login (--autostart), installs the video/audio tools (--media) and a
+// Claude Code skill so any chat can connect by name (skip with --no-skill),
 // then starts the host and prints how to load the extension.
 
 const fs = require('fs');
@@ -51,6 +52,11 @@ function installMedia() {
   } catch {
     info('failed. Python 3.9 or newer is required; then run  node setup.js --media  again.');
   }
+}
+
+function installSkill() {
+  step('Installing the Claude Code skill (any chat can connect with "connect to BrowserHand" or /browserhand)');
+  try { info(require('./host/skill').install()); } catch (e) { info('skipped: ' + e.message); }
 }
 
 function writeLauncher() {
@@ -121,6 +127,7 @@ function main() {
   }
   installHost();
   if (flag('--media')) installMedia();
+  if (!flag('--no-skill')) installSkill();
   const launcher = writeLauncher();
   if (flag('--autostart')) registerAutostart(launcher);
   startHost(launcher);

@@ -296,3 +296,9 @@ select option { background: var(--surface); color: var(--text); }
 .update-note:empty { display: none; }
 .update-note a { color: var(--muted); text-underline-offset: 3px; }
 .badge.update { background: var(--accent); }
+
+/* connect another Claude Code chat */
+#connectPop { width: 340px; }
+.connect-hint { margin: 0 0 var(--s3); font-size: var(--t-sm); color: var(--text-2); }
+#connectSkill { color: var(--text); }
+#connectPop pre { margin: 0; padding: var(--s3); border-radius: var(--r-sm); background: var(--code); font: 11px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }

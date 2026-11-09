@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const updater = require('./update');
+const skill = require('./skill');
 
 const HOST_DIR = __dirname;
 const ROOT = path.resolve(HOST_DIR, '..');
@@ -100,7 +101,7 @@ for (const line of (() => { try { return fs.readFileSync(CHAT_FILE, 'utf8').spli
   } catch { /* skip a damaged line */ }
 }
 const persist = (m) => fs.appendFileSync(CHAT_FILE, JSON.stringify(m) + '\n');
-const watchers = new Set();
+const watchers = new Map(); // response -> { res, name, cwd }
 const listening = () => watchers.size > 0;
 
 function setStatus(m, status) {
@@ -109,7 +110,7 @@ function setStatus(m, status) {
   toExtension({ type: 'chat-status', id: m.id, status });
 }
 
-function addUserMessage({ text, tab, images, mode, model, effort }) {
+function addUserMessage({ text, tab, images, mode, target, model, effort }) {
   const id = crypto.randomBytes(4).toString('hex');
   const saved = (images || []).slice(0, 6)
     .map((img) => ({ file: saveDataUrl(UPLOADS, 'img', img.data), thumb: img.thumb || null }))
@@ -117,7 +118,7 @@ function addUserMessage({ text, tab, images, mode, model, effort }) {
   if (saved.length) keepNewest(UPLOADS, 200);
   const m = {
     id, from: 'user', text: String(text || ''), tab: tab || null, images: saved,
-    mode: mode === 'worker' ? 'worker' : 'session', model, effort,
+    mode: mode === 'worker' ? 'worker' : 'session', target: target || null, model, effort,
     at: Date.now(), status: 'sent',
   };
   push(m);
@@ -136,17 +137,35 @@ function push(m) {
   toExtension({ type: 'chat-msg', msg: m });
 }
 
+// A session-mode message goes to the chat it is addressed to (by name); without a target,
+// to the most recently connected chat. A message for a chat that isn't connected waits.
+function watcherFor(target) {
+  const all = [...watchers.values()];
+  if (!target) return all[all.length - 1] || null;
+  return all.filter((w) => w.name === target).pop() || null;
+}
+
 function deliver() {
   if (!listening()) return;
   for (const m of chat) {
     if (m.from !== 'user' || m.mode !== 'session' || m.status !== 'sent') continue;
-    const line = JSON.stringify({ id: m.id, text: m.text, tab: m.tab, images: m.images.map((x) => x.file), at: m.at }) + '\n';
-    for (const w of watchers) w.write(line);
+    const w = watcherFor(m.target);
+    if (!w) continue;
+    w.res.write(JSON.stringify({ id: m.id, text: m.text, tab: m.tab, images: m.images.map((x) => x.file), at: m.at }) + '\n');
     setStatus(m, 'read');
   }
 }
 
-const sendListener = () => toExtension({ type: 'chat-listener', on: listening() });
+function sessionList() {
+  const byName = new Map();
+  for (const w of watchers.values()) byName.set(w.name, { name: w.name, cwd: w.cwd });
+  return [...byName.values()];
+}
+
+const sendListener = () => {
+  toExtension({ type: 'chat-listener', on: listening() });
+  toExtension({ type: 'chat-sessions', sessions: sessionList() });
+};
 const progress = (code, detail) => toExtension({ type: 'chat-progress', progress: code ? { code, detail } : null });
 
 // ---------- worker: headless Claude Code ----------
@@ -271,6 +290,9 @@ const syncFrame = () => ({
   type: 'chat-sync',
   messages: chat.slice(-200),
   listener: listening(),
+  sessions: sessionList(),
+  cli: path.join(HOST_DIR, 'bh.js'),
+  skill: skill.isInstalled(),
   usage: state.usage,
   progress: worker.current ? { code: 'thinking' } : null,
 });
@@ -331,10 +353,10 @@ const routes = {
   'GET /chat': (req, url) => ({ ok: true, result: chat.slice(-(+url.searchParams.get('n') || 20)) }),
 
   'POST /reply': async (req) => {
-    const { text } = await readBody(req);
+    const { text, name } = await readBody(req);
     if (!text) return { ok: false, error: 'text required' };
     progress(null);
-    addClaudeMessage('reply', text, { meta: { model: 'session' } });
+    addClaudeMessage('reply', text, { meta: { model: 'session', session: name || null } });
     return { ok: true, result: 'sent' };
   },
 
@@ -388,7 +410,9 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/watch') {
     res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-cache' });
     res.write('{"hello":true}\n');
-    watchers.add(res);
+    const cwd = url.searchParams.get('cwd') || '';
+    const name = (url.searchParams.get('name') || path.basename(cwd) || 'session').slice(0, 60);
+    watchers.set(res, { res, name, cwd });
     const keepalive = setInterval(() => res.write('\n'), 15000);
     req.on('close', () => { clearInterval(keepalive); watchers.delete(res); sendListener(); });
     sendListener();

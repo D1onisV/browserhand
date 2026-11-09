@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Several Claude Code chats at once, from different projects. Each connected chat appears in the picker as **Chat: <folder>**; a message goes only to the chat you picked, and the answer shows which chat sent it. Messages for a chat that isn't connected wait for it.
+- Connecting is one sentence: `setup.js` installs a Claude Code skill with this computer's paths, so in any chat you can say "connect to BrowserHand" or type /browserhand. **Connect a Claude Code chat…** in the menu shows a ready-to-paste text with the real install path as well.
+- `watch` explains to the chat what to do with the messages it prints; `watch name=<label>` sets the name.
+
 ## 0.3.2
 
 - After an update the extension reloads only once the old host has closed the connection, and the host restarts without waiting for open connections. Before, the reloaded extension could stay attached to the old host while a new one started without it.

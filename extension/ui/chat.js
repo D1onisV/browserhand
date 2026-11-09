@@ -35,6 +35,10 @@ const ICON = {
 
 let state = { enabled: true, connected: false, listener: false, messages: [], queued: [], progress: null, usage: {} };
 let prefs = { model: 'session', effort: 'medium', attachTab: true };
+
+// prefs.model is "session:<chat name>" for a connected Claude Code chat, or a model id.
+const isSession = (v) => String(v).startsWith('session');
+const sessionName = (v) => String(v).slice('session:'.length);
 let images = [];      // pending pasted images: { data, thumb }
 let activeTab = null; // { id, title, url, allowed, scriptable }
 
@@ -105,9 +109,14 @@ function renderStatus() {
   let tip;
   if (!state.enabled) { cls = 'off'; tip = t('status.off'); }
   else if (!state.connected) tip = t('status.noServer');
-  else if (prefs.model !== 'session') { cls = 'on'; tip = t('status.worker', { model: modelName(prefs.model) }); }
-  else if (state.listener) { cls = 'on'; tip = t('status.listening'); }
-  else { cls = 'wait'; tip = t('status.idle'); }
+  else if (!isSession(prefs.model)) { cls = 'on'; tip = t('status.worker', { model: modelName(prefs.model) }); }
+  else if (sessionName(prefs.model) ? sessionOnline(sessionName(prefs.model)) : state.listener) {
+    cls = 'on';
+    tip = sessionName(prefs.model) ? t('status.chatListening', { name: sessionName(prefs.model) }) : t('status.listening');
+  } else {
+    cls = 'wait';
+    tip = sessionName(prefs.model) ? t('status.chatIdle', { name: sessionName(prefs.model) }) : t('status.idle');
+  }
   $('dot').className = 'dot ' + cls;
   $('dot').title = tip;
   document.querySelector('.title').title = tip;
@@ -199,6 +208,7 @@ function renderMessages() {
 
     let meta = clock(m.at);
     if (m.from === 'user') meta += ' · ' + ({ queued: '⏳', sent: '✓', read: '✓✓' }[m.status] || '');
+    else if (m.meta && m.meta.session) meta += ` · ${esc(m.meta.session)}`;
     else if (m.meta && m.meta.model && m.meta.model !== 'session') {
       meta += ` · ${modelName(m.meta.model)}`;
       if (m.meta.ms) meta += ` · ${t('time.s', { n: Math.round(m.meta.ms / 1000) })}`;
@@ -227,12 +237,12 @@ function renderMessages() {
 function renderComposer() {
   const input = $('input');
   $('suggest').hidden = !(activeTab && activeTab.allowed && VIDEO_URL.test(activeTab.url || '') && !input.value.trim());
-  $('model').value = prefs.model;
+  fillModelSelect();
   $('effort').value = prefs.effort;
-  $('effort').hidden = prefs.model === 'session';
-  input.placeholder = prefs.model === 'session'
-    ? t('composer.placeholderSession')
-    : t('composer.placeholderModel', { model: modelName(prefs.model) });
+  $('effort').hidden = isSession(prefs.model);
+  input.placeholder = !isSession(prefs.model) ? t('composer.placeholderModel', { model: modelName(prefs.model) })
+    : sessionName(prefs.model) ? t('composer.placeholderChat', { name: sessionName(prefs.model) })
+      : t('composer.placeholderSession');
 
   const chip = $('tabChip');
   const usable = !!(activeTab && activeTab.scriptable && activeTab.allowed);
@@ -267,13 +277,14 @@ async function submit() {
   const text = $('input').value.trim();
   if (!text && !images.length) return;
   $('send').disabled = true;
-  const worker = prefs.model !== 'session';
+  const worker = !isSession(prefs.model);
   const r = await send({
     type: 'chat-send',
     text,
     images,
     withTab: prefs.attachTab && !!(activeTab && activeTab.allowed && activeTab.scriptable),
     mode: worker ? 'worker' : 'session',
+    target: worker ? undefined : sessionName(prefs.model) || undefined,
     model: worker ? prefs.model : undefined,
     effort: worker ? prefs.effort : undefined,
   });
@@ -351,8 +362,33 @@ const refreshTabs = () => { clearTimeout(tabsTimer); tabsTimer = setTimeout(rend
 
 // ---------- static UI ----------
 
+const sessionOnline = (name) => (state.sessions || []).some((s) => s.name === name);
+
+// The picker: every connected chat, the chosen chat if it is offline, then the models.
+function fillModelSelect() {
+  const names = (state.sessions || []).map((s) => s.name);
+  if (prefs.model === 'session' && names.length) prefs.model = 'session:' + names[names.length - 1];
+  const entries = names.map((n) => ['session:' + n, t('composer.chat', { name: n })]);
+  if (isSession(prefs.model) && !names.includes(sessionName(prefs.model))) {
+    entries.unshift([prefs.model, sessionName(prefs.model)
+      ? t('composer.chatOffline', { name: sessionName(prefs.model) })
+      : t('composer.noChat')]);
+  }
+  for (const [id] of MODELS) if (id !== 'session') entries.push([id, modelName(id)]);
+  const select = $('model');
+  const html = entries.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
+  if (select.dataset.html !== html) { select.innerHTML = html; select.dataset.html = html; }
+  select.value = prefs.model;
+}
+
+// Text to paste into another Claude Code chat; paths come from where BrowserHand is installed.
+function connectText() {
+  const cli = `node "${state.cli || 'host/bh.js'}"`;
+  return [t('connect.pasteIntro'), '', `${cli} watch`, '', t('connect.pasteBody', { reply: `${cli} reply "…"`, help: `${cli} help` })].join('\n');
+}
+
 function fillSelects() {
-  $('model').innerHTML = MODELS.map(([id]) => `<option value="${id}">${esc(modelName(id))}</option>`).join('');
+  fillModelSelect();
   $('effort').innerHTML = EFFORTS.map((e) => `<option value="${e}">${t('effort.' + e)}</option>`).join('');
   $('lang').innerHTML = Object.entries(LANGUAGES).map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
   $('lang').value = currentLang;
@@ -375,7 +411,7 @@ function renderAll() {
 // ---------- events ----------
 
 const closePopovers = (except) => {
-  for (const id of ['menu', 'usagePop']) if (id !== except) $(id).hidden = true;
+  for (const id of ['menu', 'usagePop', 'connectPop']) if (id !== except) $(id).hidden = true;
 };
 const savePrefs = () => chrome.storage.local.set({ prefs });
 
@@ -392,6 +428,7 @@ $('menuBtn').onclick = (e) => { e.stopPropagation(); closePopovers('menu'); $('m
 document.addEventListener('click', (e) => {
   if (!$('menu').contains(e.target)) $('menu').hidden = true;
   if (!$('usagePop').contains(e.target)) $('usagePop').hidden = true;
+  if (!$('connectPop').contains(e.target)) $('connectPop').hidden = true;
 });
 
 $('themeBtn').onclick = () => { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); renderTheme(); };
@@ -414,6 +451,19 @@ $('updateBtn').onclick = async (e) => {
   if (!r || !r.ok) {
     $('updateNote').textContent = r && r.error === 'no-host' ? t('update.noHost') : t('update.failed', { detail: (r && r.error) || '' });
   }
+};
+$('connectChat').onclick = (e) => {
+  e.stopPropagation();
+  closePopovers('connectPop');
+  $('connectSkill').hidden = !state.skill;
+  $('connectText').textContent = connectText();
+  $('copyConnect').textContent = t('connect.copy');
+  $('connectPop').hidden = false;
+};
+$('copyConnect').onclick = async (e) => {
+  e.stopPropagation();
+  await navigator.clipboard.writeText($('connectText').textContent);
+  $('copyConnect').textContent = t('connect.copied');
 };
 $('newChat').onclick = async () => {
   $('menu').hidden = true;

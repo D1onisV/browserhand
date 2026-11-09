@@ -35,6 +35,16 @@
       <div class="pop-foot" id="usageFoot"></div>
     </div>
 
+    <div class="pop" id="connectPop" hidden>
+      <div class="pop-title" data-i18n="connect.title"></div>
+      <div class="pop-body">
+        <p class="connect-hint" id="connectSkill" data-i18n="connect.skill"></p>
+        <p class="connect-hint" data-i18n="connect.hint"></p>
+        <pre id="connectText"></pre>
+      </div>
+      <div class="pop-foot"><button class="link" id="copyConnect" data-i18n="connect.copy"></button></div>
+    </div>
+
     <div class="menu" id="menu" hidden>
       <div class="update-row" id="updateRow" hidden>
         <button id="updateBtn"></button>
@@ -49,6 +59,7 @@
       <div class="sep"></div>
       <label class="row-select"><span data-i18n="menu.language"></span><select id="lang"></select></label>
       <div class="sep"></div>
+      <button id="connectChat" data-i18n="menu.connect"></button>
       <button id="newChat" data-i18n="menu.newChat"></button>
     </div>
   </header>

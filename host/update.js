@@ -114,6 +114,9 @@ async function update({ log = console.log } = {}) {
     fs.rmSync(work, { recursive: true, force: true });
   }
 
+  const skill = require('./skill');
+  if (skill.isInstalled()) { delete require.cache[require.resolve('./skill')]; require('./skill').install(); log('refreshed the Claude Code skill'); }
+
   log('installing dependencies');
   execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--omit=dev', '--silent'], { cwd: HOST_DIR, stdio: 'inherit', shell: process.platform === 'win32' });
   return { updated: true, ...status, installed: installedVersion() };

@@ -11,7 +11,7 @@
 //   node host/bh.js batch '[{"cmd":"nav","url":"https://example.com"},{"cmd":"map"}]'
 //   node host/bh.js media look https://youtu.be/...
 //
-// Chat (session mode): watch | reply "text" | reply - < file | progress "step" | chat [n] | usage '<json>'
+// Chat (session mode): watch [name=label] | reply "text" | reply - < file | progress "step" | chat [n] | usage '<json>'
 // Updates: update [--check]
 
 const fs = require('fs');
@@ -110,11 +110,23 @@ function runMedia(rest) {
   process.exitCode = r.status ?? 1;
 }
 
+// The name this Claude Code chat appears under in the extension: name=<label>, BH_NAME, or the folder.
+function takeSessionName(rest) {
+  const arg = rest.find((a) => a.startsWith('name='));
+  if (arg) rest.splice(rest.indexOf(arg), 1);
+  return (arg && arg.slice(5)) || process.env.BH_NAME || path.basename(process.cwd());
+}
+
 // Prints each session-mode chat message as a block; reconnects when the host restarts.
-async function watch() {
+// The first lines tell the reading agent what to do with the blocks.
+async function watch(name) {
+  const cli = `node "${path.join(HOST_DIR, 'bh.js')}"`;
+  console.log(`BrowserHand: this chat is connected as "${name}". Each CHAT block below is a request typed in the extension.`);
+  console.log(`Do it in the browser with ${cli} <command> (${cli} help lists them), then answer with ${cli} reply "text".`);
   for (;;) {
     await new Promise((resolve) => {
-      const req = http.request({ host: '127.0.0.1', port: PORT, method: 'GET', path: '/watch', headers: { 'x-bh-token': readToken() } }, (res) => {
+      const route = `/watch?name=${encodeURIComponent(name)}&cwd=${encodeURIComponent(process.cwd())}`;
+      const req = http.request({ host: '127.0.0.1', port: PORT, method: 'GET', path: route, headers: { 'x-bh-token': readToken() } }, (res) => {
         let buffer = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => {
@@ -157,10 +169,11 @@ async function main() {
       console.log(JSON.stringify(status));
       return;
     case 'watch':
-      return watch();
+      return watch(takeSessionName(rest));
     case 'reply': {
+      const name = takeSessionName(rest);
       const text = !rest.length || rest[0] === '-' ? fs.readFileSync(0, 'utf8') : rest.join(' ');
-      const r = await request('POST', '/reply', { text: text.trim() });
+      const r = await request('POST', '/reply', { text: text.trim(), name });
       if (!r.ok) throw new Error(r.error);
       console.log(r.result);
       return;

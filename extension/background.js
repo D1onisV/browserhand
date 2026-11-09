@@ -175,6 +175,7 @@ function connect() {
     if (update.reloadOnClose) return chrome.runtime.reload();
     if (socket === ws) socket = null;
     chat.listener = false;
+    chat.sessions = [];
     updateBadge();
     broadcastChat();
     if (enabled) setTimeout(connect, 2000);
@@ -197,13 +198,16 @@ chrome.runtime.onInstalled.addListener(connect);
 // ---------- chat relay ----------
 
 const MAX_MESSAGES = 300;
-const chat = { messages: [], listener: false, queued: [], progress: null, usage: {} };
+const chat = { messages: [], listener: false, queued: [], progress: null, usage: {}, sessions: [], cli: '', skill: false };
 chrome.storage.local.get({ chatQueue: [] }).then((s) => { chat.queued = s.chatQueue; });
 
 const chatState = () => ({
   enabled,
   connected: isOpen(),
   listener: chat.listener,
+  sessions: chat.sessions,
+  cli: chat.cli,
+  skill: chat.skill,
   messages: chat.messages,
   queued: chat.queued,
   progress: chat.progress,
@@ -217,6 +221,9 @@ function onChatFrame(msg) {
     case 'chat-sync':
       chat.messages = msg.messages || [];
       chat.listener = !!msg.listener;
+      chat.sessions = msg.sessions || [];
+      chat.cli = msg.cli || chat.cli;
+      chat.skill = !!msg.skill;
       chat.usage = newerUsage(chat.usage, msg.usage);
       chat.progress = msg.progress || null;
       break;
@@ -227,6 +234,7 @@ function onChatFrame(msg) {
       break;
     }
     case 'chat-listener': chat.listener = !!msg.on; break;
+    case 'chat-sessions': chat.sessions = msg.sessions || []; break;
     case 'chat-progress': chat.progress = msg.progress || null; break;
     case 'chat-usage': chat.usage = newerUsage(chat.usage, msg.usage); break;
     case 'update-status': onUpdateStatus(msg); break;
@@ -249,6 +257,7 @@ async function sendChat(msg) {
     tab: msg.withTab ? await currentTab() : null,
     images: msg.images,
     mode: msg.mode,
+    target: msg.target,
     model: msg.model,
     effort: msg.effort,
   };

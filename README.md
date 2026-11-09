@@ -71,7 +71,7 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
    node setup.js --autostart
    ```
 
-   Add `--media` to install the video and audio tools too.
+   Add `--media` to install the video and audio tools too, or `--no-skill` to skip the Claude Code skill (`node host/skill.js` installs it later, `--remove` removes it).
 
 3. **Load the extension**
 
@@ -115,13 +115,18 @@ Pick one in the list under the message box.
 
 **A model (Opus, Sonnet, Haiku, Fable).** The host starts Claude Code in the background with that model and effort, gives it only the browser commands and the image reader, and keeps one conversation going until you click **New chat**. Nothing else needs to be open.
 
-**This session.** Requests go to a Claude Code session you have open. Tell it to listen:
+**A Claude Code chat.** Requests go to a Claude Code chat you have open, in any project. You can connect several chats at once: each appears in the list as **Chat: <project folder>**, and a message goes only to the chat you picked.
+
+To connect a chat, say in it **"connect to BrowserHand"** or type **/browserhand**. `setup.js` installs a Claude Code skill with the right paths for your computer, so the chat knows what to run. Without the skill, open **Connect a Claude Code chat…** in the menu ⋯ and paste the text it shows; it already contains your install path.
+
+Under the hood the chat runs, in the background:
 
 ```bash
-node host/bh.js watch
+node host/bh.js watch                # appears as the folder name
+node host/bh.js watch name=shop      # or under a name you choose
 ```
 
-Each message arrives in the session with the current tab and any pasted images. The session answers with `node host/bh.js reply "..."`.
+Each message arrives with the current tab and any pasted images; the chat answers with `node host/bh.js reply "..."`, and the answer is labelled with the chat's name. A message for a chat that isn't connected waits until it connects.
 
 ## Examples
 
