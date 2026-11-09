@@ -384,7 +384,7 @@ function fillModelSelect() {
 // Text to paste into another Claude Code chat; paths come from where BrowserHand is installed.
 function connectText() {
   const cli = `node "${state.cli || 'host/bh.js'}"`;
-  return [t('connect.pasteIntro'), '', `${cli} watch`, '', t('connect.pasteBody', { reply: `${cli} reply "…"`, help: `${cli} help` })].join('\n');
+  return [t('connect.pasteIntro'), '', `${cli} watch name="${t('connect.namePlaceholder')}"`, '', t('connect.pasteBody', { reply: `${cli} reply "…"`, help: `${cli} help` })].join('\n');
 }
 
 function fillSelects() {
@@ -411,7 +411,7 @@ function renderAll() {
 // ---------- events ----------
 
 const closePopovers = (except) => {
-  for (const id of ['menu', 'usagePop', 'connectPop']) if (id !== except) $(id).hidden = true;
+  for (const id of ['menu', 'usagePop', 'connectPop', 'threadsPop']) if (id !== except) $(id).hidden = true;
 };
 const savePrefs = () => chrome.storage.local.set({ prefs });
 
@@ -429,6 +429,7 @@ document.addEventListener('click', (e) => {
   if (!$('menu').contains(e.target)) $('menu').hidden = true;
   if (!$('usagePop').contains(e.target)) $('usagePop').hidden = true;
   if (!$('connectPop').contains(e.target)) $('connectPop').hidden = true;
+  if (!$('threadsPop').contains(e.target)) $('threadsPop').hidden = true;
 });
 
 $('themeBtn').onclick = () => { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); renderTheme(); };
@@ -467,7 +468,44 @@ $('copyConnect').onclick = async (e) => {
 };
 $('newChat').onclick = async () => {
   $('menu').hidden = true;
-  if (confirm(t('menu.newChatConfirm'))) await send({ type: 'chat-clear' });
+  await send({ type: 'thread-new' });
+  $('input').focus();
+};
+
+// ---------- conversations ----------
+
+function renderThreads() {
+  const box = $('threadList');
+  const list = state.threads || [];
+  box.innerHTML = list.length ? '' : `<div class="none">${t('threads.empty')}</div>`;
+  for (const th of list) {
+    const title = th.title || t('threads.untitled');
+    const sameDay = new Date(th.updatedAt).toDateString() === new Date().toDateString();
+    const when = sameDay ? clock(th.updatedAt) : new Date(th.updatedAt).toLocaleDateString(currentLang, { day: 'numeric', month: 'short' });
+    const row = document.createElement('div');
+    row.className = 'thread' + (th.id === state.current ? ' on' : '');
+    row.innerHTML = `<span class="th-title">${esc(title)}</span><span class="th-when">${when}</span>
+      <button class="th-del" title="${t('threads.delete')}" aria-label="${t('threads.delete')}">${ICON.x}</button>`;
+    row.onclick = async () => { await send({ type: 'thread-switch', id: th.id }); $('threadsPop').hidden = true; };
+    row.querySelector('.th-del').onclick = async (e) => {
+      e.stopPropagation();
+      if (confirm(t('threads.deleteConfirm', { title }))) await send({ type: 'thread-delete', id: th.id });
+    };
+    box.appendChild(row);
+  }
+}
+
+$('threadsBtn').onclick = (e) => {
+  e.stopPropagation();
+  closePopovers('threadsPop');
+  renderThreads();
+  $('threadsPop').hidden = !$('threadsPop').hidden;
+};
+$('threadNew').onclick = async (e) => {
+  e.stopPropagation();
+  await send({ type: 'thread-new' });
+  $('threadsPop').hidden = true;
+  $('input').focus();
 };
 
 $('tabsToggle').onclick = () => {
@@ -518,8 +556,31 @@ composer.addEventListener('drop', (e) => { e.preventDefault(); composer.classLis
 $('attach').onclick = () => $('file').click();
 $('file').onchange = (e) => { [...e.target.files].forEach(addImage); e.target.value = ''; };
 
+// A chat that connects while the window is open gets a short notice.
+let knownChats = null;
+function announceNewChats() {
+  const names = (state.sessions || []).map((s) => s.name);
+  if (knownChats) {
+    const added = names.filter((n) => !knownChats.includes(n));
+    if (added.length) {
+      const note = $('notice');
+      note.textContent = added.length === 1 ? t('notice.chat', { name: added[0] }) : t('notice.chats', { names: added.join(', ') });
+      note.hidden = false;
+      clearTimeout(note.timer);
+      note.timer = setTimeout(() => { note.hidden = true; }, 7000);
+    }
+  }
+  knownChats = names;
+}
+
 chrome.runtime.onMessage.addListener((m) => {
-  if (m && m.type === 'chat-event') { state = m.state; renderStatus(); renderMessages(); }
+  if (m && m.type === 'chat-event') {
+    state = m.state;
+    renderStatus();
+    renderMessages();
+    announceNewChats();
+    if (!$('threadsPop').hidden) renderThreads();
+  }
 });
 
 (async () => {
@@ -533,6 +594,7 @@ chrome.runtime.onMessage.addListener((m) => {
     localStorage.lang = currentLang;
   }
   state = await send({ type: 'chat-get' });
+  knownChats = (state.sessions || []).map((s) => s.name);
   renderAll();
   renderTabs();
   $('input').focus();

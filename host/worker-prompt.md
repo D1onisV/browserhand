@@ -37,7 +37,7 @@ Video & audio (any URL yt-dlp supports — YouTube, TikTok, Instagram, X, Vimeo�
 - sound SRC — music/sound: tempo (BPM), beat times, loudness curve, strongest hits, silences
 - get SRC [--audio] [--height 1080] [--from --to] — download; prints the file path
 - cut SRC --from --to | audio SRC | concat A B -o OUT | vertical SRC | subs SRC | gif SRC --from --to | speed SRC 1.5 — editing; each prints the output path
-- For anything else you may run `ffmpeg`, `ffprobe` and `yt-dlp` directly.
+- Video and audio go only through `media`; there is no direct access to ffmpeg or yt-dlp. You can read only the extension's own files (screenshots, pasted images, media output).
 
 How to watch well: start with `info` (+ `hear --subs` or `hear` if it has speech), then `look` for an overview. Zoom in with `look --from --to --fps …` only where something matters. Every image costs about as much as a page of text — never pull hundreds of frames; sheets are the cheap way to see many moments. Cite timestamps (m:ss) in your answer.
 

@@ -198,7 +198,7 @@ chrome.runtime.onInstalled.addListener(connect);
 // ---------- chat relay ----------
 
 const MAX_MESSAGES = 300;
-const chat = { messages: [], listener: false, queued: [], progress: null, usage: {}, sessions: [], cli: '', skill: false };
+const chat = { messages: [], listener: false, queued: [], progress: null, usage: {}, sessions: [], cli: '', skill: false, threads: [], current: null };
 chrome.storage.local.get({ chatQueue: [] }).then((s) => { chat.queued = s.chatQueue; });
 
 const chatState = () => ({
@@ -208,6 +208,8 @@ const chatState = () => ({
   sessions: chat.sessions,
   cli: chat.cli,
   skill: chat.skill,
+  threads: chat.threads,
+  current: chat.current,
   messages: chat.messages,
   queued: chat.queued,
   progress: chat.progress,
@@ -224,10 +226,13 @@ function onChatFrame(msg) {
       chat.sessions = msg.sessions || [];
       chat.cli = msg.cli || chat.cli;
       chat.skill = !!msg.skill;
+      chat.threads = msg.threads || [];
+      chat.current = msg.current || null;
       chat.usage = newerUsage(chat.usage, msg.usage);
       chat.progress = msg.progress || null;
       break;
-    case 'chat-msg': chat.messages.push(msg.msg); break;
+    case 'chat-msg': if (!msg.msg.thread || msg.msg.thread === chat.current) chat.messages.push(msg.msg); break;
+    case 'chat-threads': chat.threads = msg.threads || []; chat.current = msg.current || chat.current; break;
     case 'chat-status': {
       const m = chat.messages.find((x) => x.id === msg.id);
       if (m) m.status = msg.status;
@@ -271,6 +276,12 @@ async function sendChat(msg) {
   return { ok: true };
 }
 
+function sendToHost(msg) {
+  if (!isOpen()) return { ok: false, error: 'no-host' };
+  socket.send(JSON.stringify(msg));
+  return { ok: true };
+}
+
 const popupHandlers = {
   'chat-get': () => chatState(),
   'update-check': async () => { await checkForUpdate(true); return { ok: true }; },
@@ -288,6 +299,9 @@ const popupHandlers = {
   },
   'chat-send': sendChat,
   'chat-stop': () => { if (isOpen()) socket.send('{"type":"chat-stop"}'); return { ok: true }; },
+  'thread-new': () => sendToHost({ type: 'thread-new' }),
+  'thread-switch': ({ id }) => sendToHost({ type: 'thread-switch', id }),
+  'thread-delete': ({ id }) => sendToHost({ type: 'thread-delete', id }),
   'chat-clear': async () => {
     chat.queued = [];
     await chrome.storage.local.set({ chatQueue: [] });

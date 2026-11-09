@@ -36,6 +36,7 @@ Unlike automation tools that launch a separate, empty browser, BrowserHand works
 ## Features
 
 - **Chat in the toolbar.** Ask in plain language, paste screenshots with Ctrl+V, and see what Claude is doing step by step.
+- **Many conversations.** Start a new chat without losing the old one; switch between them from the list at the top.
 - **Per-tab access.** A checkbox for every tab. Hidden tabs don't exist for Claude: it can't list, read, click or screenshot them.
 - **Two ways to run.** Send requests to your open Claude Code session, or let the host run Claude Code on its own with the model and effort you pick (Opus, Sonnet, Haiku, Fable).
 - **Reads pages the way an agent needs.** A compact map of headings and controls with stable ids, text, cleaned HTML, console logs and network requests.
@@ -179,6 +180,8 @@ Environment variables `BH_PORT` and `CLAUDE_BIN` override the file.
 
 - The host listens on `127.0.0.1` only, checks the `Host` header, rejects browser origins on its HTTP API and requires a random token stored in `host/data/.token`.
 - The WebSocket accepts only the extension IDs listed in the configuration.
+- A Claude Code run started by the host may only use the BrowserHand CLI and read BrowserHand's own files in `host/data/`; it cannot run other programs or read the rest of your disk.
+- Web pages can still try to talk the model into actions (prompt injection). Keep tabs with sensitive accounts unticked when you don't need them.
 - Each tab is opt-in or opt-out with a checkbox, and **Browser access** in the menu cuts the connection at once.
 - Claude never types passwords or payment details and never solves CAPTCHAs. Text on web pages is treated as data, not as instructions.
 - Chats, screenshots, pasted images and media files stay in `host/data/` on your machine.

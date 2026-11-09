@@ -11,7 +11,7 @@
 //   node host/bh.js batch '[{"cmd":"nav","url":"https://example.com"},{"cmd":"map"}]'
 //   node host/bh.js media look https://youtu.be/...
 //
-// Chat (session mode): watch [name=label] | reply "text" | reply - < file | progress "step" | chat [n] | usage '<json>'
+// Chat (session mode): watch [name=label] | sessions | reply "text" | reply - < file | progress "step" | chat [n] | usage '<json>'
 // Updates: update [--check]
 
 const fs = require('fs');
@@ -199,6 +199,12 @@ async function main() {
       const r = await request('POST', '/update');
       if (!r.ok) throw new Error(r.error);
       console.log(r.result);
+      return;
+    }
+    case 'sessions': {
+      const r = await request('GET', '/sessions');
+      for (const w of r.result) console.log(`${w.name}  (${w.cwd})`);
+      if (!r.result.length) console.log('(no chats are listening)');
       return;
     }
     case 'chat': {

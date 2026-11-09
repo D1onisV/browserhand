@@ -11,6 +11,9 @@
     <span class="dot" id="dot"></span>
     <span class="title">BrowserHand</span>
     <span class="grow"></span>
+    <button class="ghost" id="threadsBtn" data-i18n-title="threads.button" data-i18n-aria="threads.button">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>
+    </button>
     <button class="ghost" id="usageBtn" data-i18n-title="usage.button" data-i18n-aria="usage.button">
       <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1 1 11 0"/><path d="M8 11.5 10.6 7"/></svg>
       <span class="badge" id="usageBadge" hidden></span>
@@ -23,6 +26,14 @@
       <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
       <span class="badge update" id="menuBadge" hidden></span>
     </button>
+
+    <div class="pop" id="threadsPop" hidden>
+      <div class="pop-title">
+        <span data-i18n="threads.title"></span>
+        <button class="link" id="threadNew" data-i18n="threads.new"></button>
+      </div>
+      <div class="pop-body" id="threadList"></div>
+    </div>
 
     <div class="pop" id="usagePop" hidden>
       <div class="pop-title">
@@ -78,6 +89,7 @@
     </div>
   </section>
 
+  <div id="notice" hidden></div>
   <main id="list"></main>
 
   <div id="progress" hidden>

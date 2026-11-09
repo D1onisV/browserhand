@@ -302,3 +302,20 @@ select option { background: var(--surface); color: var(--text); }
 .connect-hint { margin: 0 0 var(--s3); font-size: var(--t-sm); color: var(--text-2); }
 #connectSkill { color: var(--text); }
 #connectPop pre { margin: 0; padding: var(--s3); border-radius: var(--r-sm); background: var(--code); font: 11px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+
+/* "a chat connected" notice */
+#notice { flex: none; margin: var(--s2) var(--gutter) 0; padding: var(--s2) var(--s3); border-radius: var(--r-md); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--text); font-size: var(--t-sm); }
+
+/* conversations */
+#threadsPop { width: 320px; }
+#threadsPop .pop-title { justify-content: space-between; }
+#threadsPop .pop-title .link { font-size: var(--t-sm); font-weight: 500; color: var(--accent); }
+#threadList { display: flex; flex-direction: column; gap: 2px; margin-left: calc(-1 * var(--s2)); }
+.thread { display: flex; align-items: center; gap: var(--s2); min-height: 34px; padding: 0 var(--s1) 0 var(--s2); border-radius: var(--r-sm); cursor: pointer; }
+.thread:hover, .thread.on { background: var(--raised); }
+.thread.on .th-title { font-weight: 600; }
+.th-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-when { flex: none; font-size: var(--t-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.th-del { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); opacity: 0; }
+.thread:hover .th-del, .th-del:focus-visible { opacity: 1; }
+.th-del:hover { background: var(--line); color: var(--text); }

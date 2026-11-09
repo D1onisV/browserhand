@@ -31,7 +31,7 @@ const PORT = +process.env.BH_PORT || config.port || 17321;
 // IDs of extensions allowed to connect. The first one is the ID pinned by the manifest key.
 const EXTENSION_IDS = config.extensionIds || ['cdphdaidboienlcjeenkbmccgfokadjp'];
 const CLAUDE = process.env.CLAUDE_BIN || config.claudeBin || findClaude();
-const MAX_CHAT = 500;
+const MAX_CHAT = 5000;
 
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
@@ -101,6 +101,54 @@ for (const line of (() => { try { return fs.readFileSync(CHAT_FILE, 'utf8').spli
   } catch { /* skip a damaged line */ }
 }
 const persist = (m) => fs.appendFileSync(CHAT_FILE, JSON.stringify(m) + '\n');
+
+// ---------- conversations ----------
+// Every message belongs to a conversation. "New chat" starts another one; the old ones stay and
+// can be opened again. Each keeps its own background Claude Code conversation.
+
+state.threads = state.threads || {};
+const titleOf = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+for (const m of chat) {
+  if (!m.thread) m.thread = 'main';
+  const t = state.threads[m.thread] || (state.threads[m.thread] = { id: m.thread, title: '', createdAt: m.at, updatedAt: m.at, workerSession: null });
+  t.updatedAt = Math.max(t.updatedAt || 0, m.at || 0);
+  if (!t.title && m.from === 'user') t.title = titleOf(m.text);
+}
+if (state.workerSession && state.threads.main && !state.threads.main.workerSession) state.threads.main.workerSession = state.workerSession;
+delete state.workerSession;
+
+function newThread() {
+  const id = crypto.randomBytes(4).toString('hex');
+  state.threads[id] = { id, title: '', createdAt: Date.now(), updatedAt: Date.now(), workerSession: null };
+  state.currentThread = id;
+  saveState();
+}
+
+const latestThread = () => Object.values(state.threads).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+if (!state.threads[state.currentThread]) {
+  const latest = latestThread();
+  if (latest) state.currentThread = latest.id; else newThread();
+}
+saveState();
+
+const currentMessages = () => chat.filter((m) => m.thread === state.currentThread);
+const threadList = () => Object.values(state.threads)
+  .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt }))
+  .sort((a, b) => b.updatedAt - a.updatedAt);
+const sendThreads = () => toExtension({ type: 'chat-threads', threads: threadList(), current: state.currentThread });
+
+function touchThread(m) {
+  const t = state.threads[m.thread];
+  if (!t) return;
+  t.updatedAt = m.at;
+  if (!t.title && m.from === 'user') t.title = titleOf(m.text);
+  saveState();
+}
+
+function rewriteChatFile() {
+  fs.writeFileSync(CHAT_FILE, chat.map((m) => JSON.stringify(m) + '\n').join(''));
+}
 const watchers = new Map(); // response -> { res, name, cwd }
 const listening = () => watchers.size > 0;
 
@@ -119,7 +167,7 @@ function addUserMessage({ text, tab, images, mode, target, model, effort }) {
   const m = {
     id, from: 'user', text: String(text || ''), tab: tab || null, images: saved,
     mode: mode === 'worker' ? 'worker' : 'session', target: target || null, model, effort,
-    at: Date.now(), status: 'sent',
+    at: Date.now(), status: 'sent', thread: state.currentThread,
   };
   push(m);
   if (m.mode === 'worker') enqueue(m); else deliver();
@@ -127,18 +175,27 @@ function addUserMessage({ text, tab, images, mode, target, model, effort }) {
 
 // kind: reply | error | stopped | no-answer | start-failed
 function addClaudeMessage(kind, text, extra = {}) {
-  push({ id: crypto.randomBytes(4).toString('hex'), from: 'claude', kind, text: String(text || ''), at: Date.now(), ...extra });
+  push({ id: crypto.randomBytes(4).toString('hex'), from: 'claude', kind, text: String(text || ''), at: Date.now(), thread: state.currentThread, ...extra });
 }
 
 function push(m) {
   chat.push(m);
   if (chat.length > MAX_CHAT) chat.shift();
   persist(m);
+  touchThread(m);
   toExtension({ type: 'chat-msg', msg: m });
+  sendThreads();
 }
 
 // A session-mode message goes to the chat it is addressed to (by name); without a target,
 // to the most recently connected chat. A message for a chat that isn't connected waits.
+let lastDelivered = null; // name of the chat that got the latest message
+let lastDeliveredThread = null;
+
+// A reply is labelled with the sender's name if that chat is listening, otherwise with the chat
+// that received the latest message (a chat connected with name=... that replies without it).
+const replyName = (name) => ([...watchers.values()].some((w) => w.name === name) ? name : lastDelivered || name || null);
+
 function watcherFor(target) {
   const all = [...watchers.values()];
   if (!target) return all[all.length - 1] || null;
@@ -152,6 +209,8 @@ function deliver() {
     const w = watcherFor(m.target);
     if (!w) continue;
     w.res.write(JSON.stringify({ id: m.id, text: m.text, tab: m.tab, images: m.images.map((x) => x.file), at: m.at }) + '\n');
+    lastDelivered = w.name;
+    lastDeliveredThread = m.thread;
     setStatus(m, 'read');
   }
 }
@@ -195,7 +254,7 @@ function runNext() {
   worker.stopped = false;
   setStatus(m, 'read');
   progress('starting');
-  start(m, state.workerSession);
+  start(m, (state.threads[m.thread] || {}).workerSession || null);
 }
 
 function start(m, resume) {
@@ -204,7 +263,9 @@ function start(m, resume) {
     '--model', m.model || 'claude-sonnet-5-5', '--effort', m.effort || 'medium',
     '--strict-mcp-config', '--setting-sources', 'project',
     '--tools', 'Bash,Read',
-    '--allowedTools', 'Bash(node host/bh.js:*)', 'Bash(ffmpeg:*)', 'Bash(ffprobe:*)', 'Bash(yt-dlp:*)', 'Read',
+    // Only the browser CLI and reading BrowserHand's own files (screenshots, pasted images, media).
+    // No direct ffmpeg/yt-dlp: yt-dlp --exec would run any command a web page talked the model into.
+    '--allowedTools', 'Bash(node host/bh.js:*)', 'Read(./host/data/**)',
     '--append-system-prompt-file', PROMPT_FILE,
   ];
   if (resume) args.push('--resume', resume);
@@ -230,7 +291,7 @@ function start(m, resume) {
       try { e = JSON.parse(line); } catch { continue; }
       if (e.type === 'system' && e.subtype === 'init') {
         initialized = true;
-        state.workerSession = e.session_id;
+        if (state.threads[m.thread]) state.threads[m.thread].workerSession = e.session_id;
         saveState();
         progress('thinking');
       } else if (e.type === 'assistant' && e.message && Array.isArray(e.message.content)) {
@@ -253,7 +314,7 @@ function start(m, resume) {
     if (worker.stopped) return finish(m, 'stopped');
     // The saved conversation is gone: start a fresh one once.
     if (!result && resume && !initialized) {
-      state.workerSession = null;
+      if (state.threads[m.thread]) state.threads[m.thread].workerSession = null;
       saveState();
       return start(m, null);
     }
@@ -268,7 +329,7 @@ function start(m, resume) {
 function finish(m, kind, text = '', extra = {}) {
   worker.current = null;
   progress(null);
-  addClaudeMessage(kind, text, { replyTo: m.id, ...extra });
+  addClaudeMessage(kind, text, { replyTo: m.id, thread: m.thread, ...extra });
   runNext();
 }
 
@@ -277,18 +338,36 @@ function stopWorker() {
   if (worker.proc) { worker.stopped = true; worker.proc.kill(); }
 }
 
-function clearChat() {
-  stopWorker();
-  chat.length = 0;
-  fs.writeFileSync(CHAT_FILE, '');
-  state.workerSession = null;
+// "New chat": keep the old conversation; an empty current one is reused.
+function startThread() {
+  if (currentMessages().length) newThread();
+  toExtension(syncFrame());
+}
+
+function switchThread(id) {
+  if (state.threads[id]) { state.currentThread = id; saveState(); }
+  toExtension(syncFrame());
+}
+
+function deleteThread(id) {
+  if (!state.threads[id]) return;
+  if (worker.current && worker.current.thread === id) stopWorker();
+  for (let i = chat.length - 1; i >= 0; i--) if (chat[i].thread === id) chat.splice(i, 1);
+  delete state.threads[id];
+  rewriteChatFile();
+  if (state.currentThread === id) {
+    const next = latestThread();
+    if (next) state.currentThread = next.id; else newThread();
+  }
   saveState();
   toExtension(syncFrame());
 }
 
 const syncFrame = () => ({
   type: 'chat-sync',
-  messages: chat.slice(-200),
+  messages: currentMessages().slice(-200),
+  threads: threadList(),
+  current: state.currentThread,
   listener: listening(),
   sessions: sessionList(),
   cli: path.join(HOST_DIR, 'bh.js'),
@@ -350,13 +429,16 @@ function restart() {
 const routes = {
   'GET /status': () => ({ ok: true, extension: !!extension, info: extensionInfo, listening: listening(), worker: !!worker.proc }),
 
+  'GET /sessions': () => ({ ok: true, result: [...watchers.values()].map((w) => ({ name: w.name, cwd: w.cwd })) }),
+
   'GET /chat': (req, url) => ({ ok: true, result: chat.slice(-(+url.searchParams.get('n') || 20)) }),
 
   'POST /reply': async (req) => {
     const { text, name } = await readBody(req);
     if (!text) return { ok: false, error: 'text required' };
     progress(null);
-    addClaudeMessage('reply', text, { meta: { model: 'session', session: name || null } });
+    const thread = state.threads[lastDeliveredThread] ? lastDeliveredThread : state.currentThread;
+    addClaudeMessage('reply', text, { thread, meta: { model: 'session', session: replyName(name) } });
     return { ok: true, result: 'sent' };
   },
 
@@ -460,7 +542,9 @@ wss.on('connection', (ws) => {
       return;
     }
     if (msg.type === 'chat-stop') return stopWorker();
-    if (msg.type === 'chat-clear') return clearChat();
+    if (msg.type === 'chat-clear' || msg.type === 'thread-new') return startThread();
+    if (msg.type === 'thread-switch') return switchThread(msg.id);
+    if (msg.type === 'thread-delete') return deleteThread(msg.id);
     if (msg.type === 'update-run') return runUpdate();
     const p = pending.get(msg.id);
     if (p) { clearTimeout(p.timer); pending.delete(msg.id); p.resolve(msg); }

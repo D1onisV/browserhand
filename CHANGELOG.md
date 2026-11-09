@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- **Chats list.** "New chat" no longer deletes anything: it starts a new conversation and keeps the old ones. The list icon at the top shows every conversation to switch to or delete. Each conversation keeps its own memory when a model handles it, and answers land in the conversation the question came from.
+- **Security.** When the host runs Claude Code with a chosen model, it can now only run the BrowserHand CLI and read BrowserHand's own files (screenshots, pasted images, media). Direct `ffmpeg` and `yt-dlp` are gone: `yt-dlp --exec` could run any command a malicious page talked the model into. Video and audio still work through `media`.
+- A notice appears when a Claude Code chat connects; the connect text asks the chat to name itself, and `bh.js sessions` lists connected chats.
+- Answers from a chat connected under `name=...` are labelled with that name even when it replies without it.
+
 ## 0.4.0
 
 - Several Claude Code chats at once, from different projects. Each connected chat appears in the picker as **Chat: <folder>**; a message goes only to the chat you picked, and the answer shows which chat sent it. Messages for a chat that isn't connected wait for it.

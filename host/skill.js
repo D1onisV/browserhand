@@ -33,7 +33,8 @@ BrowserHand is installed at \`${path.dirname(__dirname)}\`. Everything goes thro
 
        ${cli} watch
 
-   The chat appears in the extension's picker under this folder's name. Add \`name=<label>\` to choose another name.
+   The chat appears in the extension's picker under this folder's name. If the folder name says little (a temporary
+   or scratch folder, for example), add \`name="<1–3 words about this chat>"\`.
 2. Each \`CHAT [id]\` block it prints is a request typed in the extension. It may include the current tab (\`tab ID: title — url\`) and \`IMAGES:\` file paths: look at those with Read.
 3. Do the request with browser commands, then answer in the extension:
 
