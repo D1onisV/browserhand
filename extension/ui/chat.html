@@ -78,10 +78,15 @@
       <label data-i18n-title="menu.followTabsHint"><input type="checkbox" id="followTabs"><span data-i18n="menu.followTabs"></span></label>
       <label data-i18n-title="menu.realInputHint"><input type="checkbox" id="realInput"><span data-i18n="menu.realInput"></span></label>
       <div class="sep"></div>
-      <label class="row-select"><span data-i18n="menu.language"></span><select id="lang"></select></label>
+      <label class="row-select">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.7 1.8 2.5 3.8 2.5 6S9.7 12.2 8 14M8 2C6.3 3.8 5.5 5.8 5.5 8s.8 4.2 2.5 6"/></svg>
+        <span data-i18n="menu.language"></span><select id="lang"></select>
+      </label>
       <div class="sep"></div>
-      <button id="connectChat" data-i18n="menu.connect"></button>
-      <button id="newChat" data-i18n="menu.newChat"></button>
+      <button id="connectChat">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 9.5 9.5 6.5M7 4.5l1-1a2.8 2.8 0 0 1 4 4l-1 1M9 11.5l-1 1a2.8 2.8 0 0 1-4-4l1-1"/></svg>
+        <span data-i18n="menu.connect"></span>
+      </button>
     </div>
   </header>
 
@@ -115,12 +120,15 @@
           <span data-i18n="composer.video"></span>
         </button>
       </div>
+      <div class="context">
+        <button class="chip" id="tabChip"></button>
+        <button class="chip" id="chatChip" data-i18n-title="composer.chatHint"></button>
+      </div>
       <div id="thumbs"></div>
       <textarea id="input" rows="1"></textarea>
       <div class="bar">
         <select id="model" data-i18n-title="composer.model"></select>
         <select id="effort" data-i18n-title="composer.effort"></select>
-        <button class="chip" id="tabChip"></button>
         <span class="grow"></span>
         <button class="ghost" id="attach" data-i18n-title="composer.attach" data-i18n-aria="composer.attach">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l4-4"/></svg>

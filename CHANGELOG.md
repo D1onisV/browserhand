@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- Claude Code chats are no longer mixed into the model picker. The picker lists **Claude Code chat** and the models; the chosen chat shows as a label above the input (click it to choose another, it turns amber when that chat is offline).
+- Cleaner composer: the placeholder is just "What should I do?", the model, effort and language lists are as wide as their value, and the input, picker and chips share one left edge.
+- Menus and panels line up with the window edge; every menu row has an icon column. In the chats list dates and the delete button no longer shift rows. "New chat" lives in the chats list only.
+
 ## 0.6.0
 
 - **Reload extension** in the menu ⋯: restarts the local host and reloads the extension in one click, applying changed files and clearing a stuck state. Connected Claude Code chats reconnect by themselves. Also available as `bh.js reload-all`.

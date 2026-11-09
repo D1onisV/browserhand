@@ -28,6 +28,7 @@ const modelName = (id) => (id === 'session' ? t('composer.session') : (MODELS.fi
 const VIDEO_URL = /youtube\.com\/(watch|shorts|live)|youtu\.be\/|tiktok\.com\/.+\/video|vimeo\.com\/\d|instagram\.com\/(reel|p)\/|(twitter|x)\.com\/.+\/status|twitch\.tv\/videos|facebook\.com\/.*videos|dailymotion\.com\/video|\.(mp4|webm|mov|mkv|mp3|m4a|wav)(\?|$)/i;
 
 const ICON = {
+  route: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v5a2 2 0 0 0 2 2h7M10 7l3 3-3 3"/></svg>',
   tab: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 6.5h12"/></svg>',
   x: '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
   globe: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.6 3.7 2.6 6S9.8 12.3 8 14M8 2C6.2 3.7 5.4 5.7 5.4 8s.8 4.3 2.6 6"/></svg>',
@@ -38,7 +39,8 @@ let prefs = { model: 'session', effort: 'medium', attachTab: true };
 
 // prefs.model is "session:<chat name>" for a connected Claude Code chat, or a model id.
 const isSession = (v) => String(v).startsWith('session');
-const sessionName = (v) => String(v).slice('session:'.length);
+// The chosen Claude Code chat, picked in the Chats list (older versions kept it in prefs.model as "session:<name>").
+const sessionName = () => prefs.chat || '';
 let images = [];      // pending pasted images: { data, thumb }
 let activeTab = null; // { id, title, url, allowed, scriptable }
 
@@ -110,12 +112,12 @@ function renderStatus() {
   if (!state.enabled) { cls = 'off'; tip = t('status.off'); }
   else if (!state.connected) tip = t('status.noServer');
   else if (!isSession(prefs.model)) { cls = 'on'; tip = t('status.worker', { model: modelName(prefs.model) }); }
-  else if (sessionName(prefs.model) ? sessionOnline(sessionName(prefs.model)) : state.listener) {
+  else if (sessionName() ? sessionOnline(sessionName()) : state.listener) {
     cls = 'on';
-    tip = sessionName(prefs.model) ? t('status.chatListening', { name: sessionName(prefs.model) }) : t('status.listening');
+    tip = sessionName() ? t('status.chatListening', { name: sessionName() }) : t('status.listening');
   } else {
     cls = 'wait';
-    tip = sessionName(prefs.model) ? t('status.chatIdle', { name: sessionName(prefs.model) }) : t('status.idle');
+    tip = sessionName() ? t('status.chatIdle', { name: sessionName() }) : t('status.idle');
   }
   $('dot').className = 'dot ' + cls;
   $('dot').title = tip;
@@ -240,9 +242,11 @@ function renderComposer() {
   fillModelSelect();
   $('effort').value = prefs.effort;
   $('effort').hidden = isSession(prefs.model);
-  input.placeholder = !isSession(prefs.model) ? t('composer.placeholderModel', { model: modelName(prefs.model) })
-    : sessionName(prefs.model) ? t('composer.placeholderChat', { name: sessionName(prefs.model) })
-      : t('composer.placeholderSession');
+  input.placeholder = t('composer.placeholder');
+  fitSelect($('model'));
+  fitSelect($('effort'));
+  fitSelect($('lang'));
+  renderChatChip();
 
   const chip = $('tabChip');
   const usable = !!(activeTab && activeTab.scriptable && activeTab.allowed);
@@ -284,7 +288,7 @@ async function submit() {
     images,
     withTab: prefs.attachTab && !!(activeTab && activeTab.allowed && activeTab.scriptable),
     mode: worker ? 'worker' : 'session',
-    target: worker ? undefined : sessionName(prefs.model) || undefined,
+    target: worker ? undefined : sessionName() || undefined,
     model: worker ? prefs.model : undefined,
     effort: worker ? prefs.effort : undefined,
   });
@@ -364,21 +368,38 @@ const refreshTabs = () => { clearTimeout(tabsTimer); tabsTimer = setTimeout(rend
 
 const sessionOnline = (name) => (state.sessions || []).some((s) => s.name === name);
 
-// The picker: every connected chat, the chosen chat if it is offline, then the models.
+// The picker: "Claude Code chat" and the models. Which chat is chosen in the Chats list.
 function fillModelSelect() {
   const names = (state.sessions || []).map((s) => s.name);
-  if (prefs.model === 'session' && names.length) prefs.model = 'session:' + names[names.length - 1];
-  const entries = names.map((n) => ['session:' + n, t('composer.chat', { name: n })]);
-  if (isSession(prefs.model) && !names.includes(sessionName(prefs.model))) {
-    entries.unshift([prefs.model, sessionName(prefs.model)
-      ? t('composer.chatOffline', { name: sessionName(prefs.model) })
-      : t('composer.noChat')]);
-  }
-  for (const [id] of MODELS) if (id !== 'session') entries.push([id, modelName(id)]);
+  if (isSession(prefs.model) && !prefs.chat && names.length) prefs.chat = names[names.length - 1];
+  const entries = MODELS.map(([id]) => [id, modelName(id)]);
   const select = $('model');
   const html = entries.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
   if (select.dataset.html !== html) { select.innerHTML = html; select.dataset.html = html; }
-  select.value = prefs.model;
+  select.value = isSession(prefs.model) ? 'session' : prefs.model;
+}
+
+// A native select is as wide as its longest option; size it to the chosen one so the bar has no gaps.
+const measure = document.createElement('canvas').getContext('2d');
+function fitSelect(select) {
+  if (select.hidden || select.selectedIndex < 0) return;
+  const cs = getComputedStyle(select);
+  measure.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const text = measure.measureText(select.options[select.selectedIndex].text).width;
+  select.style.width = Math.ceil(text + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 2) + 'px';
+}
+
+// Where a message goes in Claude Code mode: the chosen chat, shown above the input.
+function renderChatChip() {
+  const chip = $('chatChip');
+  chip.hidden = !isSession(prefs.model);
+  if (chip.hidden) return;
+  const name = sessionName();
+  const online = !!name && sessionOnline(name);
+  chip.classList.toggle('on', online);
+  chip.classList.toggle('warn', !online);
+  const label = !name ? t('composer.noChat') : online ? name : t('composer.chatOffline', { name });
+  chip.innerHTML = ICON.route + `<span>${esc(label)}</span>`;
 }
 
 // Text to paste into another Claude Code chat; paths come from where BrowserHand is installed.
@@ -471,11 +492,6 @@ $('reloadAll').onclick = async () => {
   $('reloadAll').querySelector('span').textContent = t('menu.reloading');
   await send({ type: 'reload-all' }); // the window closes when the extension reloads
 };
-$('newChat').onclick = async () => {
-  $('menu').hidden = true;
-  await send({ type: 'thread-new' });
-  $('input').focus();
-};
 
 // ---------- conversations ----------
 
@@ -485,13 +501,14 @@ function renderSessions() {
   const list = state.sessions || [];
   box.innerHTML = list.length ? '' : `<div class="none">${t('threads.noChats')}</div>`;
   for (const s of list) {
-    const chosen = prefs.model === 'session:' + s.name;
+    const chosen = isSession(prefs.model) && prefs.chat === s.name;
     const row = document.createElement('div');
     row.className = 'thread' + (chosen ? ' on' : '');
     row.title = s.cwd || '';
     row.innerHTML = `<span class="live"></span><span class="th-title">${esc(s.name)}</span><span class="th-when">${chosen ? t('threads.chosen') : t('threads.choose')}</span>`;
     row.onclick = () => {
-      prefs.model = 'session:' + s.name;
+      prefs.model = 'session';
+      prefs.chat = s.name;
       savePrefs();
       renderStatus();
       renderComposer();
@@ -549,8 +566,9 @@ chrome.tabs.onUpdated.addListener((_id, change) => { if (change.title || change.
 chrome.windows.onFocusChanged.addListener(refreshTabs);
 
 $('model').onchange = (e) => { prefs.model = e.target.value; savePrefs(); renderStatus(); renderComposer(); };
-$('effort').onchange = (e) => { prefs.effort = e.target.value; savePrefs(); };
+$('effort').onchange = (e) => { prefs.effort = e.target.value; savePrefs(); fitSelect(e.target); };
 $('tabChip').onclick = () => { prefs.attachTab = !prefs.attachTab; savePrefs(); renderComposer(); };
+$('chatChip').onclick = (e) => { e.stopPropagation(); $('threadsBtn').click(); };
 
 $('input').addEventListener('input', () => {
   autosize();
@@ -615,6 +633,7 @@ chrome.runtime.onMessage.addListener((m) => {
 (async () => {
   const stored = await chrome.storage.local.get({ prefs, cookieReject: true, followTabs: true, realInput: false, lang: null });
   prefs = { ...prefs, ...stored.prefs };
+  if (String(prefs.model).startsWith('session:')) { prefs.chat = prefs.model.slice(8); prefs.model = 'session'; }
   $('cookieReject').checked = stored.cookieReject;
   $('followTabs').checked = stored.followTabs;
   $('realInput').checked = stored.realInput;

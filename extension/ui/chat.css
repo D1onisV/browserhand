@@ -107,7 +107,7 @@ html[data-theme="light"] #icoSun, html[data-theme="dark"] #icoMoon { display: bl
 
 /* ---------- popovers & menu ---------- */
 .pop, .menu {
-  position: absolute; top: 44px; right: var(--s3); z-index: 10;
+  position: absolute; top: 44px; right: var(--gutter); z-index: 10;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-md);
 }
@@ -142,7 +142,11 @@ html[data-theme="light"] #icoSun, html[data-theme="dark"] #icoMoon { display: bl
 }
 .menu label:hover, .menu button:hover { background: var(--raised); }
 .menu .sep { height: 1px; margin: var(--s1) 0; background: var(--line); }
-.menu .row-select { justify-content: space-between; cursor: default; }
+.menu .row-select { cursor: default; }
+.menu .row-select span { flex: 1; }
+/* every menu row has a 14px icon column, so all labels start on one line */
+.menu button svg, .menu label svg, .menu label input { width: 14px; flex: none; }
+.menu button svg, .menu label svg { color: var(--muted); }
 .menu .row-select:hover { background: none; }
 
 /* ---------- tabs ---------- */
@@ -249,7 +253,7 @@ textarea:focus-visible { outline: none; }
   border: 2px solid var(--surface); border-radius: 50%; background: var(--text); color: var(--surface);
 }
 
-.bar { display: flex; align-items: center; gap: 2px; margin-left: calc(-1 * var(--s1)); }
+.bar { display: flex; align-items: center; gap: 2px; margin-left: calc(-1 * var(--s2)); }
 select {
   appearance: none; height: var(--control); max-width: 120px;
   padding: 0 22px 0 var(--s2); border: 0; border-radius: var(--r-sm);
@@ -310,20 +314,31 @@ select option { background: var(--surface); color: var(--text); }
 #threadsPop { width: 320px; }
 #threadsPop .pop-title { justify-content: space-between; }
 #threadsPop .pop-title .link { font-size: var(--t-sm); font-weight: 500; color: var(--accent); }
-#threadList { display: flex; flex-direction: column; gap: 2px; margin-left: calc(-1 * var(--s2)); }
+#threadList { display: flex; flex-direction: column; gap: 2px; margin: 0 calc(-1 * var(--s2)); }
 .thread { display: flex; align-items: center; gap: var(--s2); min-height: 34px; padding: 0 var(--s1) 0 var(--s2); border-radius: var(--r-sm); cursor: pointer; }
 .thread:hover, .thread.on { background: var(--raised); }
 .thread.on .th-title { font-weight: 600; }
 .th-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-when { flex: none; font-size: var(--t-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
-.th-del { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); opacity: 0; }
-.thread:hover .th-del, .th-del:focus-visible { opacity: 1; }
+.th-del { flex: none; display: none; place-items: center; width: 22px; height: 22px; margin-right: -3px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); }
+/* the delete button takes the date's place on hover, so dates line up with the chats' labels */
+.thread:hover .th-del, .thread:focus-within .th-del { display: grid; }
+.thread:hover .th-when, .thread:focus-within .th-when { display: none; }
 .th-del:hover { background: var(--line); color: var(--text); }
 
 /* sections in the chats list */
 #threadsPop .sect { margin: var(--s3) 0 var(--s1); font-size: var(--t-xs); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
 #threadsPop .sect:first-child { margin-top: 0; }
-#sessionList { display: flex; flex-direction: column; gap: 2px; margin-left: calc(-1 * var(--s2)); }
+#sessionList { display: flex; flex-direction: column; gap: 2px; margin: 0 calc(-1 * var(--s2)); }
+/* the list scrolls, so it can't bleed out with a negative margin; pad the scroller instead */
+#threadsPop .pop-body { margin: 0 calc(-1 * var(--s2)); padding: 0 var(--s2); }
 #sessionList .none { padding: 0 var(--s2); font-size: var(--t-sm); }
 .live { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 #reloadAll svg { flex: none; color: var(--muted); }
+
+/* context row above the input: attached tab + where the message goes */
+.context { display: flex; flex-wrap: wrap; gap: var(--s1); margin: calc(-1 * var(--s1)) 0 0 calc(-1 * var(--s1)); }
+.context .chip { height: 24px; max-width: 168px; padding: 0 var(--s2); font-size: var(--t-xs); border-radius: var(--r-pill); }
+.context .chip[hidden] { display: none; }
+#chatChip.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+select#model { max-width: 160px; }

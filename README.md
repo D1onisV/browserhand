@@ -116,7 +116,7 @@ Pick one in the list under the message box.
 
 **A model (Opus, Sonnet, Haiku, Fable).** The host starts Claude Code in the background with that model and effort, gives it only the browser commands and the image reader, and keeps one conversation going until you click **New chat**. Nothing else needs to be open.
 
-**A Claude Code chat.** Requests go to a Claude Code chat you have open, in any project. You can connect several chats at once: each appears in the list as **Chat: <project folder>**, and a message goes only to the chat you picked.
+**A Claude Code chat.** Requests go to a Claude Code chat you have open, in any project. You can connect several chats at once: pick **Claude Code chat** in the picker, then choose the chat in the chats list (or click the chat label above the input). A message goes only to that chat.
 
 To connect a chat, say in it **"connect to BrowserHand"** or type **/browserhand**. `setup.js` installs a Claude Code skill with the right paths for your computer, so the chat knows what to run. Without the skill, open **Connect a Claude Code chat…** in the menu ⋯ and paste the text it shows; it already contains your install path.
 
