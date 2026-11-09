@@ -417,6 +417,8 @@ let restarting = false;
 
 function restart() {
   restarting = true;
+  stopWorker();
+  for (const w of watchers.values()) w.res.end(); // connected chats reconnect to the new copy
   for (const client of wss.clients) client.terminate();
   wss.close();
   server.close();
@@ -546,6 +548,7 @@ wss.on('connection', (ws) => {
     if (msg.type === 'thread-switch') return switchThread(msg.id);
     if (msg.type === 'thread-delete') return deleteThread(msg.id);
     if (msg.type === 'update-run') return runUpdate();
+    if (msg.type === 'host-restart') return restart();
     const p = pending.get(msg.id);
     if (p) { clearTimeout(p.timer); pending.delete(msg.id); p.resolve(msg); }
   });

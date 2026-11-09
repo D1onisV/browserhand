@@ -466,6 +466,11 @@ $('copyConnect').onclick = async (e) => {
   await navigator.clipboard.writeText($('connectText').textContent);
   $('copyConnect').textContent = t('connect.copied');
 };
+$('reloadAll').onclick = async () => {
+  $('reloadAll').disabled = true;
+  $('reloadAll').querySelector('span').textContent = t('menu.reloading');
+  await send({ type: 'reload-all' }); // the window closes when the extension reloads
+};
 $('newChat').onclick = async () => {
   $('menu').hidden = true;
   await send({ type: 'thread-new' });
@@ -474,7 +479,31 @@ $('newChat').onclick = async () => {
 
 // ---------- conversations ----------
 
+// Connected Claude Code chats; clicking one sends the next messages there.
+function renderSessions() {
+  const box = $('sessionList');
+  const list = state.sessions || [];
+  box.innerHTML = list.length ? '' : `<div class="none">${t('threads.noChats')}</div>`;
+  for (const s of list) {
+    const chosen = prefs.model === 'session:' + s.name;
+    const row = document.createElement('div');
+    row.className = 'thread' + (chosen ? ' on' : '');
+    row.title = s.cwd || '';
+    row.innerHTML = `<span class="live"></span><span class="th-title">${esc(s.name)}</span><span class="th-when">${chosen ? t('threads.chosen') : t('threads.choose')}</span>`;
+    row.onclick = () => {
+      prefs.model = 'session:' + s.name;
+      savePrefs();
+      renderStatus();
+      renderComposer();
+      $('threadsPop').hidden = true;
+      $('input').focus();
+    };
+    box.appendChild(row);
+  }
+}
+
 function renderThreads() {
+  renderSessions();
   const box = $('threadList');
   const list = state.threads || [];
   box.innerHTML = list.length ? '' : `<div class="none">${t('threads.empty')}</div>`;

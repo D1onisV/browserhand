@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- **Reload extension** in the menu ⋯: restarts the local host and reloads the extension in one click, applying changed files and clearing a stuck state. Connected Claude Code chats reconnect by themselves. Also available as `bh.js reload-all`.
+- The chats list now has two sections: **Claude Code chats** (connected right now; click one to send your next messages there) and **Conversations**.
+
 ## 0.5.0
 
 - **Chats list.** "New chat" no longer deletes anything: it starts a new conversation and keeps the old ones. The list icon at the top shows every conversation to switch to or delete. Each conversation keeps its own memory when a model handles it, and answers land in the conversation the question came from.

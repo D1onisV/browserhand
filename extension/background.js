@@ -113,6 +113,7 @@ registerCommands({
     return `tab ${tab.id}`;
   },
   'reload-ext': async () => { setTimeout(() => chrome.runtime.reload(), 100); return 'reloading extension'; },
+  'reload-all': async () => { setTimeout(reloadAll, 100); return 'restarting the host and reloading the extension'; },
 });
 
 // ---------- connection to the host ----------
@@ -276,6 +277,13 @@ async function sendChat(msg) {
   return { ok: true };
 }
 
+// "Reload extension": restart the local host, then reload the extension. Applies changed files
+// and clears a stuck state; connected chats reconnect by themselves.
+function reloadAll() {
+  if (isOpen()) socket.send('{"type":"host-restart"}');
+  setTimeout(() => chrome.runtime.reload(), 700);
+}
+
 function sendToHost(msg) {
   if (!isOpen()) return { ok: false, error: 'no-host' };
   socket.send(JSON.stringify(msg));
@@ -299,6 +307,7 @@ const popupHandlers = {
   },
   'chat-send': sendChat,
   'chat-stop': () => { if (isOpen()) socket.send('{"type":"chat-stop"}'); return { ok: true }; },
+  'reload-all': () => { reloadAll(); return { ok: true }; },
   'thread-new': () => sendToHost({ type: 'thread-new' }),
   'thread-switch': ({ id }) => sendToHost({ type: 'thread-switch', id }),
   'thread-delete': ({ id }) => sendToHost({ type: 'thread-delete', id }),

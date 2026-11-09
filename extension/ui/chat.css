@@ -319,3 +319,11 @@ select option { background: var(--surface); color: var(--text); }
 .th-del { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); opacity: 0; }
 .thread:hover .th-del, .th-del:focus-visible { opacity: 1; }
 .th-del:hover { background: var(--line); color: var(--text); }
+
+/* sections in the chats list */
+#threadsPop .sect { margin: var(--s3) 0 var(--s1); font-size: var(--t-xs); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+#threadsPop .sect:first-child { margin-top: 0; }
+#sessionList { display: flex; flex-direction: column; gap: 2px; margin-left: calc(-1 * var(--s2)); }
+#sessionList .none { padding: 0 var(--s2); font-size: var(--t-sm); }
+.live { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+#reloadAll svg { flex: none; color: var(--muted); }
